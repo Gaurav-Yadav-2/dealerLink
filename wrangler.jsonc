@@ -14,7 +14,7 @@
       "binding": "DB",
       "database_name": "dealerlink",
       // Replace with the id printed by `wrangler d1 create dealerlink` before deploying.
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "267c4a14-1178-4d28-8428-53b78ccb69e8",
       "migrations_dir": "migrations"
     }
   ],
