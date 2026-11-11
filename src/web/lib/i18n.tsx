@@ -1,0 +1,281 @@
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+
+/**
+ * Lightweight English / Hindi switch for the retailer portal (the screens shopkeepers use every day).
+ * Product names, notes and other business data are shown exactly as the wholesaler entered them.
+ */
+const en = {
+  "nav.home": "Home",
+  "nav.catalogue": "Catalogue",
+  "nav.cart": "Cart",
+  "nav.orders": "Orders",
+  "nav.payments": "Payments",
+  "nav.profile": "Profile",
+  "nav.logout": "Sign out",
+  "common.search": "Search products or SKU",
+  "common.all": "All",
+  "common.loading": "Loading…",
+  "common.retry": "Try again",
+  "common.cancel": "Cancel",
+  "common.save": "Save changes",
+  "common.view": "View",
+  "common.viewAll": "View all",
+  "home.greeting": "Namaste",
+  "home.orderingFrom": "Ordering from",
+  "home.outstanding": "Outstanding balance",
+  "home.totalPurchases": "Total purchases",
+  "home.activeOrders": "Orders in progress",
+  "home.browse": "Browse catalogue",
+  "home.recentOrders": "Recent orders",
+  "home.noOrders": "No orders yet",
+  "home.noOrdersHint": "Browse the catalogue and place your first order.",
+  "home.contact": "Contact wholesaler",
+  "cat.title": "Catalogue",
+  "cat.empty": "No products found",
+  "cat.emptyHint": "Try a different search or category.",
+  "cat.noProducts": "No products yet",
+  "cat.noProductsHint": "Your wholesaler has not added any products yet.",
+  "cat.add": "Add",
+  "cat.minQty": "Min. order",
+  "cat.inStock": "In stock",
+  "cat.lowStock": "Low stock",
+  "cat.outOfStock": "Out of stock",
+  "cat.onlyLeft": "Only {n} left",
+  "cat.mrp": "MRP",
+  "cat.per": "per",
+  "cat.plusGst": "+ {r} GST",
+  "cat.inCart": "in cart",
+  "cat.viewCart": "View cart",
+  "cat.items": "{n} item(s)",
+  "cat.details": "Product details",
+  "cat.yourPrice": "Your price",
+  "cart.title": "Your cart",
+  "cart.empty": "Your cart is empty",
+  "cart.emptyHint": "Add products from the catalogue to place an order.",
+  "cart.subtotal": "Subtotal",
+  "cart.gst": "GST",
+  "cart.total": "Order total",
+  "cart.note": "Note for wholesaler (optional)",
+  "cart.notePlaceholder": "e.g. Deliver before Friday",
+  "cart.place": "Place order",
+  "cart.clear": "Clear cart",
+  "cart.remove": "Remove",
+  "cart.fix": "Fix the highlighted items to place your order.",
+  "cart.summary": "Order summary",
+  "cart.placed": "Order placed",
+  "cart.placedHint": "Your wholesaler has been notified. You can track the status under Orders.",
+  "cart.tellOnWhatsApp": "Tell wholesaler on WhatsApp",
+  "cart.viewOrder": "View order",
+  "cart.priceNote": "Prices are confirmed by your wholesaler when the order is placed.",
+  "orders.title": "My orders",
+  "orders.active": "In progress",
+  "orders.empty": "No orders here",
+  "orders.emptyHint": "Orders you place will appear here.",
+  "orders.items": "{n} item(s)",
+  "orders.order": "Order",
+  "orders.placedOn": "Placed on",
+  "orders.status": "Status",
+  "orders.track": "Order tracking",
+  "orders.itemsTitle": "Items",
+  "orders.cancel": "Cancel order",
+  "orders.cancelConfirm": "Cancel this order?",
+  "orders.cancelHint": "You can cancel only while the order is pending. This cannot be undone.",
+  "orders.reorder": "Order again",
+  "orders.reordered": "{n} items added to your cart",
+  "orders.skipped": "{n} items are no longer available",
+  "orders.pdf": "Download PDF",
+  "orders.paid": "Paid",
+  "orders.balance": "Balance due",
+  "orders.discount": "Discount",
+  "orders.delivery": "Delivery charges",
+  "orders.yourNote": "Your note",
+  "pay.title": "Payments",
+  "pay.totalPaid": "Total paid",
+  "pay.history": "Payment history",
+  "pay.unpaidOrders": "Unpaid orders",
+  "pay.empty": "No payments recorded yet",
+  "pay.emptyHint": "Payments recorded by your wholesaler will appear here.",
+  "pay.allClear": "Nothing outstanding",
+  "pay.allClearHint": "All your orders are fully paid.",
+  "pay.reversed": "Reversed",
+  "pay.appliedTo": "Applied to",
+  "profile.title": "Profile",
+  "profile.shop": "Shop details",
+  "profile.account": "Account",
+  "profile.language": "Language",
+  "profile.changePassword": "Change password",
+  "profile.managedBy": "Shop name and phone number are managed by your wholesaler.",
+  "status.pending": "Pending",
+  "status.accepted": "Accepted",
+  "status.rejected": "Rejected",
+  "status.processing": "Processing",
+  "status.ready_for_dispatch": "Ready for dispatch",
+  "status.dispatched": "Dispatched",
+  "status.delivered": "Delivered",
+  "status.cancelled": "Cancelled",
+  "pstatus.unpaid": "Unpaid",
+  "pstatus.partial": "Partially paid",
+  "pstatus.paid": "Paid",
+};
+
+const hi: Record<keyof typeof en, string> = {
+  "nav.home": "होम",
+  "nav.catalogue": "कैटलॉग",
+  "nav.cart": "कार्ट",
+  "nav.orders": "ऑर्डर",
+  "nav.payments": "भुगतान",
+  "nav.profile": "प्रोफ़ाइल",
+  "nav.logout": "साइन आउट",
+  "common.search": "प्रोडक्ट या SKU खोजें",
+  "common.all": "सभी",
+  "common.loading": "लोड हो रहा है…",
+  "common.retry": "फिर कोशिश करें",
+  "common.cancel": "रद्द करें",
+  "common.save": "बदलाव सेव करें",
+  "common.view": "देखें",
+  "common.viewAll": "सभी देखें",
+  "home.greeting": "नमस्ते",
+  "home.orderingFrom": "आपके थोक विक्रेता",
+  "home.outstanding": "बकाया राशि",
+  "home.totalPurchases": "कुल खरीद",
+  "home.activeOrders": "चालू ऑर्डर",
+  "home.browse": "कैटलॉग देखें",
+  "home.recentOrders": "हाल के ऑर्डर",
+  "home.noOrders": "अभी तक कोई ऑर्डर नहीं",
+  "home.noOrdersHint": "कैटलॉग देखें और अपना पहला ऑर्डर करें।",
+  "home.contact": "थोक विक्रेता से संपर्क करें",
+  "cat.title": "कैटलॉग",
+  "cat.empty": "कोई प्रोडक्ट नहीं मिला",
+  "cat.emptyHint": "दूसरा नाम या कैटेगरी आज़माएँ।",
+  "cat.noProducts": "अभी कोई प्रोडक्ट नहीं",
+  "cat.noProductsHint": "आपके थोक विक्रेता ने अभी तक कोई प्रोडक्ट नहीं जोड़ा है।",
+  "cat.add": "जोड़ें",
+  "cat.minQty": "न्यूनतम ऑर्डर",
+  "cat.inStock": "स्टॉक में",
+  "cat.lowStock": "कम स्टॉक",
+  "cat.outOfStock": "स्टॉक खत्म",
+  "cat.onlyLeft": "सिर्फ़ {n} बचे हैं",
+  "cat.mrp": "MRP",
+  "cat.per": "प्रति",
+  "cat.plusGst": "+ {r} GST",
+  "cat.inCart": "कार्ट में",
+  "cat.viewCart": "कार्ट देखें",
+  "cat.items": "{n} आइटम",
+  "cat.details": "प्रोडक्ट की जानकारी",
+  "cat.yourPrice": "आपका रेट",
+  "cart.title": "आपका कार्ट",
+  "cart.empty": "आपका कार्ट खाली है",
+  "cart.emptyHint": "ऑर्डर करने के लिए कैटलॉग से प्रोडक्ट जोड़ें।",
+  "cart.subtotal": "उप-योग",
+  "cart.gst": "GST",
+  "cart.total": "कुल राशि",
+  "cart.note": "थोक विक्रेता के लिए नोट (वैकल्पिक)",
+  "cart.notePlaceholder": "जैसे: शुक्रवार से पहले भेजें",
+  "cart.place": "ऑर्डर करें",
+  "cart.clear": "कार्ट खाली करें",
+  "cart.remove": "हटाएँ",
+  "cart.fix": "ऑर्डर करने के लिए चिह्नित आइटम ठीक करें।",
+  "cart.summary": "ऑर्डर का सारांश",
+  "cart.placed": "ऑर्डर हो गया",
+  "cart.placedHint": "आपके थोक विक्रेता को सूचना भेज दी गई है। स्थिति ‘ऑर्डर’ में देखें।",
+  "cart.tellOnWhatsApp": "WhatsApp पर बताएँ",
+  "cart.viewOrder": "ऑर्डर देखें",
+  "cart.priceNote": "ऑर्डर करते समय रेट आपके थोक विक्रेता द्वारा तय किए जाते हैं।",
+  "orders.title": "मेरे ऑर्डर",
+  "orders.active": "चालू",
+  "orders.empty": "यहाँ कोई ऑर्डर नहीं",
+  "orders.emptyHint": "आपके किए गए ऑर्डर यहाँ दिखेंगे।",
+  "orders.items": "{n} आइटम",
+  "orders.order": "ऑर्डर",
+  "orders.placedOn": "ऑर्डर की तारीख",
+  "orders.status": "स्थिति",
+  "orders.track": "ऑर्डर ट्रैकिंग",
+  "orders.itemsTitle": "आइटम",
+  "orders.cancel": "ऑर्डर रद्द करें",
+  "orders.cancelConfirm": "यह ऑर्डर रद्द करें?",
+  "orders.cancelHint": "ऑर्डर सिर्फ़ ‘लंबित’ रहने तक रद्द हो सकता है। यह वापस नहीं होगा।",
+  "orders.reorder": "दोबारा ऑर्डर करें",
+  "orders.reordered": "{n} आइटम कार्ट में जोड़े गए",
+  "orders.skipped": "{n} आइटम अब उपलब्ध नहीं हैं",
+  "orders.pdf": "PDF डाउनलोड करें",
+  "orders.paid": "भुगतान हुआ",
+  "orders.balance": "बाकी राशि",
+  "orders.discount": "छूट",
+  "orders.delivery": "डिलीवरी शुल्क",
+  "orders.yourNote": "आपका नोट",
+  "pay.title": "भुगतान",
+  "pay.totalPaid": "कुल भुगतान",
+  "pay.history": "भुगतान का इतिहास",
+  "pay.unpaidOrders": "बकाया ऑर्डर",
+  "pay.empty": "अभी तक कोई भुगतान दर्ज नहीं",
+  "pay.emptyHint": "थोक विक्रेता द्वारा दर्ज किए गए भुगतान यहाँ दिखेंगे।",
+  "pay.allClear": "कुछ भी बकाया नहीं",
+  "pay.allClearHint": "आपके सभी ऑर्डर का पूरा भुगतान हो चुका है।",
+  "pay.reversed": "रद्द किया गया",
+  "pay.appliedTo": "इन ऑर्डर पर लागू",
+  "profile.title": "प्रोफ़ाइल",
+  "profile.shop": "दुकान की जानकारी",
+  "profile.account": "अकाउंट",
+  "profile.language": "भाषा",
+  "profile.changePassword": "पासवर्ड बदलें",
+  "profile.managedBy": "दुकान का नाम और फ़ोन नंबर आपके थोक विक्रेता द्वारा संभाले जाते हैं।",
+  "status.pending": "लंबित",
+  "status.accepted": "स्वीकृत",
+  "status.rejected": "अस्वीकृत",
+  "status.processing": "तैयारी में",
+  "status.ready_for_dispatch": "भेजने के लिए तैयार",
+  "status.dispatched": "भेज दिया गया",
+  "status.delivered": "डिलीवर हो गया",
+  "status.cancelled": "रद्द",
+  "pstatus.unpaid": "बकाया",
+  "pstatus.partial": "आंशिक भुगतान",
+  "pstatus.paid": "भुगतान पूरा",
+};
+
+export type Lang = "en" | "hi";
+export type TKey = keyof typeof en;
+const dictionaries = { en, hi };
+const STORAGE_KEY = "dl_lang";
+
+type I18n = { lang: Lang; setLang: (l: Lang) => void; t: (key: TKey, vars?: Record<string, string | number>) => string };
+const I18nContext = createContext<I18n | null>(null);
+
+function initialLang(): Lang {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved === "hi" || saved === "en") return saved;
+  } catch {
+    /* storage unavailable (private mode) — fall back to English */
+  }
+  return "en";
+}
+
+export function I18nProvider({ children }: { children: ReactNode }) {
+  const [lang, setLangState] = useState<Lang>(initialLang);
+  useEffect(() => {
+    document.documentElement.lang = lang;
+    return () => {
+      document.documentElement.lang = "en";
+    };
+  }, [lang]);
+  const setLang = (l: Lang) => {
+    setLangState(l);
+    try {
+      localStorage.setItem(STORAGE_KEY, l);
+    } catch {
+      /* ignore */
+    }
+  };
+  const t: I18n["t"] = (key, vars) => {
+    let s: string = dictionaries[lang][key] ?? en[key] ?? key;
+    if (vars) for (const [k, v] of Object.entries(vars)) s = s.replace(`{${k}}`, String(v));
+    return s;
+  };
+  return <I18nContext.Provider value={{ lang, setLang, t }}>{children}</I18nContext.Provider>;
+}
+
+export function useT() {
+  const ctx = useContext(I18nContext);
+  if (!ctx) throw new Error("useT must be used inside I18nProvider");
+  return ctx;
+}

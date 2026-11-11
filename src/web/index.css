@@ -1,0 +1,78 @@
+@import "tailwindcss";
+
+/* DealerLink design tokens: deep navy brand, warm amber accent used sparingly, neutral grey canvas. */
+@theme {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", "Noto Sans Devanagari", sans-serif;
+  --color-brand-50: #eef1fb;
+  --color-brand-100: #dde3f6;
+  --color-brand-200: #bcc7ee;
+  --color-brand-300: #8fa0e0;
+  --color-brand-400: #6477cf;
+  --color-brand-500: #4355b8;
+  --color-brand-600: #33429b;
+  --color-brand-700: #2a367e;
+  --color-brand-800: #1e2a5e;
+  --color-brand-900: #161f45;
+  --color-accent: #f5b83d;
+  --color-canvas: #f4f5f8;
+  --color-line: #e3e6ed;
+  --shadow-card: 0 1px 2px rgb(22 31 69 / 0.05), 0 1px 1px rgb(22 31 69 / 0.03);
+  --shadow-pop: 0 12px 32px rgb(22 31 69 / 0.16), 0 2px 6px rgb(22 31 69 / 0.08);
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-canvas text-slate-800 antialiased;
+    font-feature-settings: "tnum" 1, "cv11" 1;
+  }
+  h1, h2, h3 {
+    @apply text-slate-900;
+    text-wrap: balance;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-brand-500);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  /* 16px inputs stop iOS from zooming the page on focus */
+  input, select, textarea {
+    font-size: 16px;
+  }
+  @media (min-width: 640px) {
+    input, select, textarea {
+      font-size: 14px;
+    }
+  }
+}
+
+@layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@keyframes dl-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes dl-overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.dl-pop { animation: dl-fade-in 140ms ease-out; }
+.dl-overlay { animation: dl-overlay-in 140ms ease-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media print {
+  .no-print { display: none !important; }
+  body { background: #fff; }
+}
