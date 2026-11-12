@@ -4,7 +4,7 @@
 
 ```
 Browser (React SPA)
-   │  same-origin fetch, session cookie + CSRF header
+   │  same-origin fetch, per-tab session header + CSRF header
    ▼
 Cloudflare Worker (Hono)
    ├── /api/*      REST API ── D1 (SQLite)
@@ -19,6 +19,7 @@ One Worker serves both the API and the built frontend, so there is a single depl
 |---|---|
 | **Single Worker for API + assets** | One free deployment; same-origin removes most CORS and cookie complexity. |
 | **Opaque server-side sessions in D1**, not JWTs | Sessions can be revoked instantly (logout, password change, deactivation, suspension) and no signing secret has to be managed. Only the SHA-256 hash of the token is stored. |
+| **Per-tab sessions** (header token in `sessionStorage`, no cookie) | Requested behaviour: each tab is an independent login, so one person can be a wholesaler in one tab and a retailer in another, and logging out of one tab does not log out the others. Cookies are shared by all tabs of a browser, so they cannot do this. |
 | **PBKDF2-SHA256 via WebCrypto** | The strongest password KDF available natively in the Workers runtime without shipping WASM. 100,000 iterations is the runtime maximum. |
 | **Money as integer paise** | No floating-point arithmetic anywhere. GST and percentage discounts use integer maths with explicit half-up rounding. |
 | **Atomic `batch()` + SQL `CHECK` constraints** for consistency | D1 has no interactive transactions. Each business operation is one `db.batch()` (all-or-nothing), and the database itself rejects impossible states: stock below zero, paid amount above the order total, double reversal. A violated constraint rolls the whole batch back. |
@@ -34,7 +35,7 @@ One Worker serves both the API and the built frontend, so there is a single depl
 
 Each wholesaler is a tenant (`businesses`). Every tenant-owned table has `business_id`.
 
-**Identity is derived only from the session cookie.** `loadAuth()` resolves the user, then `authForUser()` attaches the business (for owners, via `business_members`) or the retailer profile and its business (for retailers). This is the single place tenancy is decided. Nothing identity-related is ever read from a request body, query string or header; extra fields such as `businessId` or `role` in a body are simply ignored.
+**Identity is derived only from the session token (the `X-DL-Session` header).** `loadAuth()` resolves the user, then `authForUser()` attaches the business (for owners, via `business_members`) or the retailer profile and its business (for retailers). This is the single place tenancy is decided. Nothing identity-related is ever read from a request body, query string or header; extra fields such as `businessId` or `role` in a body are simply ignored.
 
 Three guards wrap the three API areas:
 
@@ -55,7 +56,7 @@ What a retailer can never see: other retailers' data, the standard price when th
 | Control | Implementation |
 |---|---|
 | Password hashing | PBKDF2-HMAC-SHA256, 16-byte random salt, 100,000 iterations, constant-time comparison. A dummy hash is verified for unknown emails so timing does not reveal which emails exist. |
-| Sessions | 256-bit random token in an `HttpOnly`, `SameSite=Lax`, `Path=/` cookie (`Secure` on HTTPS), 14-day expiry. Only `sha256(token)` is stored. Deleted on logout; all sessions deleted on password reset, deactivation and suspension. |
+| Sessions | 256-bit random token returned once at sign-in and kept by the browser in **that tab's `sessionStorage`**, sent in the `X-DL-Session` header; 14-day expiry. No cookies are used, so every tab has an independent session and logout ends only the current tab's session. Only `sha256(token)` is stored. All of a user's sessions are deleted on password reset, deactivation and suspension. Trade-off versus an `HttpOnly` cookie: page scripts can read the token, so XSS would be more damaging; the CSP (`script-src 'self'`) and React escaping mitigate it. |
 | CSRF | (1) `Origin` must be the app's own origin or in `ALLOWED_ORIGINS`; (2) every mutation must carry `X-DL-Client: web`, which a cross-site form cannot set; (3) every authenticated mutation must carry the per-session `X-CSRF-Token`. Pre-session endpoints (login, register, reset, accept-invite) are covered by 1 and 2 plus rate limits. |
 | CORS | No cross-origin access unless the origin is explicitly listed in `ALLOWED_ORIGINS`. |
 | Rate limiting | Fixed-window counters in D1 keyed by IP (and email where relevant): login 8 per 10 min per IP+email and 40 per IP; register 10/hour; forgot-password 3/hour per email; invitation view/accept; reset; order placement. |

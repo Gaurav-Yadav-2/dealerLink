@@ -12,7 +12,7 @@ Status as of 2026-11-11. "Tested" means covered by the automated suite (`npm tes
 
 ### Module 1 — Authentication and onboarding
 - [x] Owner registration with business creation and unique slug
-- [x] Login / logout, PBKDF2 hashing, hashed server-side sessions, HttpOnly + SameSite cookie
+- [x] Login / logout, PBKDF2 hashing, hashed server-side sessions, per-tab sessions (header token in sessionStorage; replaced the cookie by request)
 - [x] CSRF (origin allow-list + custom header + session token), CORS allow-list
 - [x] Role-based access control for owner / retailer / admin
 - [x] Retailer invitations: hashed, expiring, single-use, revocable

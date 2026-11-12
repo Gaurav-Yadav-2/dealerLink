@@ -35,7 +35,7 @@ users 1─N sessions, password_resets, notifications
 
 **users** — `id`, `email` (unique, case-insensitive), `password_hash`, `name`, `phone`, `role` (`owner`|`retailer`|`admin`), `status` (`active`|`suspended`), `is_demo`, `last_login_at`, `created_at`, `updated_at`
 
-**sessions** — `id`, `user_id`→users (cascade), `token_hash` (unique; SHA-256 of the cookie token), `csrf_token`, `expires_at`, `created_at`
+**sessions** — `id`, `user_id`→users (cascade), `token_hash` (unique; SHA-256 of the session token), `csrf_token`, `expires_at`, `created_at`
 
 **password_resets** — `id`, `user_id`→users, `token_hash` (unique), `expires_at`, `used_at`, `created_by`→users (who issued it), `created_at`
 

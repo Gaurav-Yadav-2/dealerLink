@@ -21,18 +21,43 @@ describe("registration and sessions", () => {
     expect(stored.password_hash.startsWith("pbkdf2$")).toBe(true);
     expect(stored.password_hash).not.toContain(PASSWORD);
     // session token is stored hashed, never raw
-    const token = a.client.cookie.replace("dl_session=", "");
+    const token = a.client.token;
+    expect(token.length).toBeGreaterThan(20);
+    expect(JSON.stringify(me.data)).not.toContain(token); // the token is returned once at sign-in, never by /me
     const rawMatch = await db.prepare("SELECT COUNT(*) AS n FROM sessions WHERE token_hash = ?").bind(token).first<any>();
     expect(rawMatch.n).toBe(0);
   });
 
-  it("sets an HttpOnly, SameSite session cookie", async () => {
+  it("uses no cookies: the session token is returned once and sent in a header", async () => {
     const c = new Client();
-    const res = await c.post("/api/auth/register", { name: "Cookie Test", email: `c-${Date.now()}@example.com`, password: PASSWORD, phone: phone(), businessName: "Cookie Biz " + Date.now() });
-    const cookie = res.headers.get("set-cookie")!;
-    expect(cookie).toMatch(/HttpOnly/i);
-    expect(cookie).toMatch(/SameSite=Lax/i);
-    expect(cookie).toMatch(/Path=\//);
+    const res = await c.post("/api/auth/register", { name: "Header Test", email: `h-${Date.now()}@example.com`, password: PASSWORD, phone: phone(), businessName: "Header Biz " + Date.now() });
+    expect(res.status).toBe(201);
+    expect(res.headers.get("set-cookie")).toBeNull();
+    expect(c.token).toBeTruthy();
+    // an unrelated client that has no token is not signed in, whatever else it sends
+    const other = new Client();
+    expect((await other.get("/api/biz/products")).status).toBe(401);
+    expect((await other.raw("GET", "/api/biz/products", undefined, { cookie: "dl_session=" + c.token })).status).toBe(401);
+  });
+
+  it("each tab has its own session: signing out or in on one never affects another", async () => {
+    const a = await registerOwner("Tabs");
+    const tab2 = new Client();
+    expect((await tab2.post("/api/auth/login", { email: a.email, password: PASSWORD })).status).toBe(200);
+    expect(tab2.token).not.toBe(a.client.token);
+    // two independent sessions for the same user
+    expect((await a.client.get("/api/biz/products")).status).toBe(200);
+    expect((await tab2.get("/api/biz/products")).status).toBe(200);
+    // sign out of tab 2: tab 1 is still signed in
+    expect((await tab2.post("/api/auth/logout")).status).toBe(200);
+    expect((await tab2.get("/api/biz/products")).status).toBe(401);
+    expect((await a.client.get("/api/biz/products")).status).toBe(200);
+    // a different user can be signed in on another tab at the same time
+    const r = await addRetailer(a.client);
+    expect((await r.client.get("/api/retailer/products")).status).toBe(200);
+    expect((await a.client.get("/api/biz/products")).status).toBe(200);
+    expect((await a.client.post("/api/auth/logout")).status).toBe(200);
+    expect((await r.client.get("/api/retailer/products")).status).toBe(200);
   });
 
   it("rejects duplicate emails and duplicate business names", async () => {
@@ -67,10 +92,10 @@ describe("registration and sessions", () => {
 
   it("logout invalidates the session server-side", async () => {
     const a = await registerOwner();
-    const stolen = a.client.cookie;
+    const stolen = a.client.token;
     expect((await a.client.post("/api/auth/logout")).status).toBe(200);
     const replay = new Client();
-    replay.cookie = stolen;
+    replay.token = stolen;
     expect((await replay.get("/api/biz/products")).status).toBe(401);
   });
 

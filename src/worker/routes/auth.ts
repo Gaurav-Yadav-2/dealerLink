@@ -16,7 +16,8 @@ async function sessionResponse(c: Ctx, userId: string, status: 200 | 201 = 200) 
   await c.env.DB.prepare("UPDATE users SET last_login_at = ? WHERE id = ?").bind(now(), userId).run();
   const user = await c.env.DB.prepare("SELECT id, email, name, phone, role, is_demo FROM users WHERE id = ?").bind(userId).first<AuthUser>();
   if (!user) throw new AppError(500, "INTERNAL_ERROR", "Could not create session");
-  return ok(c, publicAuth(await authForUser(c.env.DB, user, session.id, session.csrf)), undefined, status);
+  // `sessionToken` is returned only here (login / register / accept-invite) and is never part of /me.
+  return ok(c, { ...publicAuth(await authForUser(c.env.DB, user, session.id, session.csrf)), sessionToken: session.token }, undefined, status);
 }
 
 authRoutes.get("/me", (c) => {
@@ -75,7 +76,7 @@ authRoutes.post("/login", async (c) => {
     throw new AppError(403, "DEMO_DISABLED", "Demo accounts are disabled in this environment");
   }
   if (user.status !== "active") throw new AppError(403, "ACCOUNT_SUSPENDED", "This account has been suspended. Contact support.");
-  await destroySession(c, false); // drop any previous session row; the new cookie replaces the old one
+  await destroySession(c); // signing in again from a tab replaces that tab's previous session
   return sessionResponse(c, user.id);
 });
 

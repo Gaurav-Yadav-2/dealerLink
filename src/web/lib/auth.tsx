@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createContext, useContext, type ReactNode } from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import { api } from "./api";
+import { api, clearSession } from "./api";
 import { FullPageSpinner } from "@/components/ui";
 
 export type Role = "owner" | "retailer" | "admin";
@@ -39,6 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     logout: async () => {
       await api.post("/auth/logout").catch(() => undefined);
+      clearSession(); // only this tab: other tabs keep their own sessions
       qc.setQueryData(["me"], null);
       qc.removeQueries({ predicate: (q) => q.queryKey[0] !== "me" });
     },

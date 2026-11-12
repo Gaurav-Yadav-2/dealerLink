@@ -83,7 +83,7 @@ Local values live in `.dev.vars` (git-ignored). Production values are the `vars`
 
 | Variable | Local | Production | Purpose |
 |---|---|---|---|
-| `ALLOWED_ORIGINS` | `http://localhost:5173` | `""` | Extra origins allowed to call the API with cookies. Leave empty when the frontend and API share one origin (the default deployment). |
+| `ALLOWED_ORIGINS` | `http://localhost:5173` | `""` | Extra origins allowed to call the API. Leave empty when the frontend and API share one origin (the default deployment). |
 | `ALLOW_DEMO_ACCOUNTS` | `true` | `false` | Allows `is_demo` users to sign in. **Never enable in production.** |
 | `DEV_SHOW_RESET_LINKS` | `true` | `false` | Returns the reset link from the forgot-password API so you can test the flow without help from another account. **Never enable in production.** |
 | `PASSWORD_HASH_ITERATIONS` | unset | unset | Optional. PBKDF2 iterations (10,000–100,000; default and maximum 100,000). See "Free-tier limits". |
@@ -136,6 +136,8 @@ To deploy from GitHub instead, push the repository and connect it under **Worker
 
 ## Documented limitations
 
+- **Sessions are per browser tab.** Each tab signs in on its own, so you can be a wholesaler in one tab and a retailer in another, and signing out of one tab leaves the others signed in. Trade-offs: a new tab (opened from a link or bookmark) starts signed out; a duplicated tab copies the login, so both then share one session; closing a tab ends its session; and because the token is in `sessionStorage` (readable by page scripts, unlike an `HttpOnly` cookie) an XSS bug would be more serious. The strict CSP and React's output escaping reduce that risk, but it is a deliberate departure from cookie sessions.
+
 - **Password reset has no email.** No email provider is configured (by design — no paid services). A retailer's forgot-password request notifies their wholesaler, who creates a one-time reset link from the retailer's page and shares it (typically on WhatsApp). A wholesaler's request notifies the platform admin, who issues the link from **Admin → Users**. Links are single-use and expire in 60 minutes.
 - **No advance credit.** A payment can never exceed what is outstanding (on the order, or across the retailer's orders for on-account payments).
 - **Payments are records, not transactions.** There is no payment gateway. Wholesalers record cash/UPI/bank/cheque payments by hand.
@@ -151,7 +153,7 @@ To deploy from GitHub instead, push the repository and connect it under **Worker
 
 ## Security summary
 
-Implemented and covered by automated tests: PBKDF2-SHA256 password hashing with per-password salts; opaque session tokens stored only as SHA-256 hashes; `HttpOnly`, `SameSite=Lax` cookies (`Secure` on HTTPS); three-layer CSRF protection (Origin allow-list, custom header, per-session token); server-side role checks on every route; tenant scoping on every query; Zod validation; parameterised SQL only; D1-backed rate limiting on auth and invitation endpoints; hashed, single-use, expiring invitation and reset tokens; safe error messages; audit logging.
+Implemented and covered by automated tests: PBKDF2-SHA256 password hashing with per-password salts; opaque session tokens stored only as SHA-256 hashes; **per-tab sessions** (the token lives in each tab's `sessionStorage` and is sent in an `X-DL-Session` header — no cookies, so tabs never share or end each other's sessions); three-layer CSRF protection (Origin allow-list, custom header, per-session token); server-side role checks on every route; tenant scoping on every query; Zod validation; parameterised SQL only; D1-backed rate limiting on auth and invitation endpoints; hashed, single-use, expiring invitation and reset tokens; safe error messages; audit logging.
 
 This MVP has **not** had an independent security review or penetration test. Treat it as a carefully built MVP, not a certified system. See `docs/ARCHITECTURE.md` for details and `TODO.md` for known gaps.
 

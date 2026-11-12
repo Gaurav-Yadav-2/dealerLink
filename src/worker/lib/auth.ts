@@ -1,10 +1,14 @@
-import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import type { MiddlewareHandler } from "hono";
 import { SESSION_TTL_DAYS } from "../../shared/constants";
 import { randomToken, sha256Hex } from "./crypto";
 import { AppError, forbidden, now, uuid, type AppEnv, type Ctx } from "./http";
 
-export const SESSION_COOKIE = "dl_session";
+/**
+ * Sessions are per browser tab. The web app keeps the session token in the tab's own sessionStorage and sends it in
+ * this header on every request. No cookie is used, so one tab signing in or out never affects another tab.
+ */
+export const SESSION_HEADER = "x-dl-session";
+const sessionToken = (c: Ctx) => c.req.header(SESSION_HEADER) || null;
 
 export type BusinessRow = {
   id: string; name: string; slug: string; phone: string | null; email: string | null; address: string | null;
@@ -24,7 +28,8 @@ export const BUSINESS_COLS =
 export const RETAILER_COLS =
   "r.id, r.business_id, r.user_id, r.business_name, r.contact_person, r.phone, r.email, r.address, r.city, r.state, r.gstin, r.status, r.registered_at, r.created_at";
 
-export async function createSession(c: Ctx, userId: string): Promise<{ id: string; csrf: string }> {
+/** Creates a session. The raw `token` is returned once to the caller; only its SHA-256 hash is stored. */
+export async function createSession(c: Ctx, userId: string): Promise<{ id: string; csrf: string; token: string }> {
   const id = uuid();
   const token = randomToken();
   const csrf = randomToken(24);
@@ -32,25 +37,18 @@ export async function createSession(c: Ctx, userId: string): Promise<{ id: strin
   await c.env.DB.prepare("INSERT INTO sessions (id, user_id, token_hash, csrf_token, expires_at, created_at) VALUES (?,?,?,?,?,?)")
     .bind(id, userId, await sha256Hex(token), csrf, expires.toISOString(), now())
     .run();
-  setCookie(c, SESSION_COOKIE, token, {
-    httpOnly: true,
-    secure: new URL(c.req.url).protocol === "https:",
-    sameSite: "Lax",
-    path: "/",
-    expires,
-  });
-  return { id, csrf };
+  return { id, csrf, token };
 }
 
-export async function destroySession(c: Ctx, clearCookie = true) {
-  const token = getCookie(c, SESSION_COOKIE);
+/** Ends only the session the request is using (this tab's), never the user's other sessions. */
+export async function destroySession(c: Ctx) {
+  const token = sessionToken(c);
   if (token) await c.env.DB.prepare("DELETE FROM sessions WHERE token_hash = ?").bind(await sha256Hex(token)).run();
-  if (clearCookie) deleteCookie(c, SESSION_COOKIE, { path: "/" });
 }
 
-/** Resolves the caller purely from the session cookie. Nothing identity-related is read from the request body. */
+/** Resolves the caller purely from the session header. Nothing identity-related is read from the request body. */
 export async function loadAuth(c: Ctx): Promise<AuthCtx | null> {
-  const token = getCookie(c, SESSION_COOKIE);
+  const token = sessionToken(c);
   if (!token) return null;
   const db = c.env.DB;
   const row = await db

@@ -9,25 +9,22 @@ export const phone = () => "9" + String(Math.floor(Math.random() * 1e9)).padStar
 
 type Res = { status: number; data: any; error?: { code: string; message: string; details?: any }; meta?: any; headers: Headers };
 
-/** A browser-like API client: keeps the session cookie and CSRF token between calls. */
+/** A browser-tab-like API client: keeps its own session token and CSRF token between calls. */
 export class Client {
-  cookie = "";
+  token = "";
   csrf = "";
   ip = `10.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}`;
 
   async raw(method: string, path: string, body?: unknown, headers: Record<string, string> = {}): Promise<Res> {
     const h: Record<string, string> = { "cf-connecting-ip": this.ip, ...headers };
-    if (this.cookie) h.cookie = this.cookie;
+    if (this.token) h["x-dl-session"] = this.token;
     if (body !== undefined) h["content-type"] = "application/json";
     const res: Response = await (exports as any).default.fetch(
       new Request(ORIGIN + path, { method, headers: h, body: body === undefined ? undefined : JSON.stringify(body) }),
     );
-    for (const setCookie of res.headers.getSetCookie()) {
-      const m = /dl_session=([^;]*)/.exec(setCookie);
-      if (m) this.cookie = m[1] ? `dl_session=${m[1]}` : "";
-    }
     const json: any = await res.json().catch(() => ({}));
     if (json?.data?.csrfToken) this.csrf = json.data.csrfToken;
+    if (json?.data?.sessionToken) this.token = json.data.sessionToken;
     return { status: res.status, data: json.data, error: json.error, meta: json.meta, headers: res.headers };
   }
   get(path: string) {
