@@ -85,7 +85,9 @@ users 1─N sessions, password_resets, notifications
 
 ### Notifications and audit
 
-**notifications** — `id`, `user_id`→users, `business_id`, `type`, `title`, `body`, `link`, `read_at`, `created_at`
+**notifications** — `id`, `user_id`→users, `business_id`, `type`, `title`, `body`, `link`, `read_at`, `pushed_at` (set when the phone-alert step has handled it; prevents double sends), `created_at`
+
+**push_subscriptions** (migration 0002) — `id`, `user_id`→users (cascade), `endpoint` (unique; one per browser), `p256dh`, `auth` (the browser's public key and secret used to encrypt alerts), `created_at`, `updated_at`
 
 **audit_logs** — `id`, `business_id` (nullable for platform actions), `actor_user_id`, `action`, `entity_type`, `entity_id`, `metadata` (JSON, never secrets), `created_at`
 

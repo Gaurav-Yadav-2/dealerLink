@@ -11,12 +11,20 @@ import { api, errorMessage } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { formatDate, formatDateTime, formatGstRate, formatINR, timeAgo } from "@/lib/format";
 import { useAction, useApi, useUrlFilters } from "@/lib/hooks";
-import { useT } from "@/lib/i18n";
+import { useT, type TKey } from "@/lib/i18n";
+import { PushAlertsBanner, PushAlertsCard, type PushText } from "@/components/PushAlerts";
 import { downloadOrderPdf } from "@/lib/pdf";
 import { messages } from "@/lib/whatsapp";
 import { ProductThumb } from "../dashboard/Products";
 
 const availKey = { in_stock: "cat.inStock", low_stock: "cat.lowStock", out_of_stock: "cat.outOfStock" } as const;
+
+/** Phone-alert wording in the retailer's chosen language. */
+const pushText = (t: (k: TKey) => string): PushText => ({
+  title: t("push.title"), desc: t("push.desc"), turnOn: t("push.turnOn"), turnOff: t("push.turnOff"), on: t("push.on"), test: t("push.test"),
+  testSent: t("push.testSent"), denied: t("push.denied"), unsupported: t("push.unsupported"), install: t("push.install"),
+  notConfigured: t("push.notConfigured"), dismiss: t("push.dismiss"), failed: t("push.failed"),
+});
 
 /** Cart quantities by product id, shared by every screen that shows an "add to cart" control. */
 function useCart() {
@@ -110,6 +118,7 @@ export function RetailerDashboard() {
         <h1 className="text-xl font-semibold tracking-tight">{t("home.greeting")}, {session?.user.name.split(" ")[0]}</h1>
         <p className="mt-0.5 text-sm text-slate-500">{t("home.orderingFrom")}: <span className="font-medium text-slate-700">{session?.business?.name}</span></p>
       </div>
+      <PushAlertsBanner text={pushText(t)} className="mb-4" />
       {q.isLoading ? (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-24 rounded-xl" />)}</div>
       ) : q.isError || !d ? (
@@ -540,6 +549,7 @@ export function RetailerProfile() {
           ))}
         </div>
       </Card>
+      <PushAlertsCard text={pushText(t)} />
       <ChangePasswordCard title={t("profile.changePassword")} />
       <Button variant="secondary" size="lg" className="w-full md:hidden" onClick={async () => { await logout(); navigate("/login"); }}><LogOut className="h-4 w-4" aria-hidden /> {t("nav.logout")}</Button>
     </div>

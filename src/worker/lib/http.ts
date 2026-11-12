@@ -9,6 +9,11 @@ export type Bindings = {
   ALLOW_DEMO_ACCOUNTS?: string;
   DEV_SHOW_RESET_LINKS?: string;
   PASSWORD_HASH_ITERATIONS?: string;
+  /** Web Push (VAPID) keys. When unset, phone alerts are switched off and everything else works as before. */
+  VAPID_PUBLIC_KEY?: string;
+  VAPID_PRIVATE_KEY?: string;
+  /** Contact for the push services (mailto: or https: URL). Defaults to the site's own URL. */
+  VAPID_SUBJECT?: string;
 };
 export type AppEnv = { Bindings: Bindings; Variables: { auth: AuthCtx | null } };
 export type Ctx = Context<AppEnv>;

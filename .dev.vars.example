@@ -5,3 +5,8 @@ ALLOWED_ORIGINS=http://localhost:5173
 ALLOW_DEMO_ACCOUNTS=true
 # Returns password-reset links in the forgot-password API response (dev only).
 DEV_SHOW_RESET_LINKS=true
+# Phone alerts (Web Push). Create real values with `npm run push:keys`; leave unset to switch alerts off.
+# VAPID_PUBLIC_KEY=
+# VAPID_PRIVATE_KEY=
+# Optional contact for push services (mailto: or https:). Defaults to the site's own URL.
+# VAPID_SUBJECT=mailto:you@example.com

@@ -68,6 +68,10 @@ Status as of 2026-11-11. "Tested" means covered by the automated suite (`npm tes
 
 ### Module 9 — Notifications and WhatsApp
 - [x] In-app notification centre for all roles
+- [x] Automatic phone push alerts (free Web Push) for every notification, with on/off control, test alert, Hindi UI *(server: tested incl. RFC 8291 vector; UI: manual — real delivery to a phone not yet verified)*
+- [ ] Phone alerts: verify delivery on a real Android phone and an iPhone home-screen app
+- [ ] Phone alerts: translate alert text to Hindi for retailers who chose Hindi
+- [ ] Automatic WhatsApp messages (needs Meta WhatsApp Business API — paid, not included)
 - [x] `wa.me` click-to-chat: order received, order status, order details, payment reminder, payment receipt, invitation, reset link *(UI: manual — links verified well-formed; not sent)*
 
 ### Module 10 — Reports

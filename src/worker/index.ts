@@ -1,6 +1,8 @@
 import { Hono } from "hono";
 import { loadAuth } from "./lib/auth";
-import { AppError, ok, type AppEnv } from "./lib/http";
+import { AppError, now, ok, type AppEnv } from "./lib/http";
+import { dispatchPendingPush } from "./lib/webpush";
+import { pushRoutes } from "./routes/push";
 import { authRoutes } from "./routes/auth";
 import { bizRoutes } from "./routes/biz";
 import { catalogRoutes } from "./routes/catalog";
@@ -19,6 +21,7 @@ const MUTATING = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 const CSRF_TOKEN_EXEMPT = [/^\/api\/auth\/(login|register|forgot-password|reset-password)$/, /^\/api\/auth\/invitations\/[^/]+\/accept$/];
 
 app.use("/api/*", async (c, next) => {
+  const startedAt = now();
   const url = new URL(c.req.url);
   const origin = c.req.header("origin");
   const allowed = new Set([url.origin, ...(c.env.ALLOWED_ORIGINS ?? "").split(",").map((s) => s.trim()).filter(Boolean)]);
@@ -56,6 +59,19 @@ app.use("/api/*", async (c, next) => {
     }
   }
   await next();
+
+  // Phone alerts: after any successful change, push the in-app notifications it created to the recipients' devices.
+  // Runs after the response is sent, so a slow push service never delays the user.
+  if (MUTATING.has(c.req.method) && c.res.status < 400) {
+    const task = dispatchPendingPush(c.env, startedAt, url.origin).catch((e) =>
+      console.error("Push dispatch failed:", e instanceof Error ? e.message : "unknown"),
+    );
+    try {
+      c.executionCtx.waitUntil(task);
+    } catch {
+      await task; // no execution context (e.g. some test harnesses): finish inline
+    }
+  }
 });
 
 app.get("/api/health", async (c) => {
@@ -79,6 +95,7 @@ app.get("/api/public/store/:slug", async (c) => {
 
 app.route("/api/auth", authRoutes);
 app.route("/api/notifications", notificationRoutes);
+app.route("/api/push", pushRoutes);
 app.route("/api/biz", bizRoutes);
 app.route("/api/biz", catalogRoutes);
 app.route("/api/biz", retailerMgmtRoutes);

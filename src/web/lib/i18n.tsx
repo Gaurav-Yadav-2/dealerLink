@@ -116,6 +116,19 @@ const en = {
   "pstatus.unpaid": "Unpaid",
   "pstatus.partial": "Partially paid",
   "pstatus.paid": "Paid",
+  "push.title": "Order alerts on this phone",
+  "push.desc": "Get a notification when your order is accepted, dispatched or delivered — even when DealerLink is closed.",
+  "push.turnOn": "Turn on alerts",
+  "push.turnOff": "Turn off",
+  "push.on": "Alerts are on for this device",
+  "push.test": "Send test alert",
+  "push.testSent": "Test alert sent. It should appear in a few seconds.",
+  "push.denied": "Alerts are blocked for this site. Allow notifications in your browser settings, then reload the page.",
+  "push.unsupported": "This browser can't show alerts. Try Chrome on Android.",
+  "push.install": "On iPhone: tap Share, then 'Add to Home Screen', open DealerLink from the home screen, then turn on alerts.",
+  "push.notConfigured": "Alerts are not set up on this site yet.",
+  "push.dismiss": "Not now",
+  "push.failed": "Couldn't turn on alerts. Please try again.",
 };
 
 const hi: Record<keyof typeof en, string> = {
@@ -230,6 +243,19 @@ const hi: Record<keyof typeof en, string> = {
   "pstatus.unpaid": "बकाया",
   "pstatus.partial": "आंशिक भुगतान",
   "pstatus.paid": "भुगतान पूरा",
+  "push.title": "इस फ़ोन पर ऑर्डर अलर्ट",
+  "push.desc": "ऑर्डर स्वीकार होने, भेजे जाने या डिलीवर होने पर सूचना पाएँ — DealerLink बंद होने पर भी।",
+  "push.turnOn": "अलर्ट चालू करें",
+  "push.turnOff": "बंद करें",
+  "push.on": "इस डिवाइस पर अलर्ट चालू हैं",
+  "push.test": "टेस्ट अलर्ट भेजें",
+  "push.testSent": "टेस्ट अलर्ट भेजा गया। कुछ सेकंड में दिखेगा।",
+  "push.denied": "इस साइट के अलर्ट ब्लॉक हैं। ब्राउज़र सेटिंग में नोटिफ़िकेशन की अनुमति दें, फिर पेज रीलोड करें।",
+  "push.unsupported": "यह ब्राउज़र अलर्ट नहीं दिखा सकता। Android पर Chrome आज़माएँ।",
+  "push.install": "iPhone पर: Share दबाएँ, फिर 'Add to Home Screen', होम स्क्रीन से DealerLink खोलें, फिर अलर्ट चालू करें।",
+  "push.notConfigured": "इस साइट पर अभी अलर्ट सेट नहीं हैं।",
+  "push.dismiss": "अभी नहीं",
+  "push.failed": "अलर्ट चालू नहीं हो सके। फिर कोशिश करें।",
 };
 
 export type Lang = "en" | "hi";

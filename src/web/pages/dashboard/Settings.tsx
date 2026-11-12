@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { INDIAN_STATES } from "@shared/constants";
 import { ChangePasswordCard, copyText } from "@/components/shared";
+import { PushAlertsCard, PUSH_TEXT_EN_OWNER } from "@/components/PushAlerts";
 import { Button, Card, CardHeader, EmptyState, Field, Input, PageHeader, Select, Textarea, Toggle } from "@/components/ui";
 import { api, errorMessage } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -93,6 +94,8 @@ export default function Settings() {
           <a href={storeUrl} target="_blank" rel="noreferrer" className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-line bg-white px-4 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"><ExternalLink className="h-4 w-4" aria-hidden /> Open</a>
         </div>
       </Card>
+
+      <PushAlertsCard text={PUSH_TEXT_EN_OWNER} />
 
       <ChangePasswordCard />
 

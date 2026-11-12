@@ -13,7 +13,7 @@ Runs entirely on Cloudflare's free tier: one Worker (API + static frontend) and 
 | **Wholesaler dashboard** | KPIs and charts from live data, product catalogue (CSV import/export, archive, stock), categories, retailers and invitations, retailer-specific price lists with bulk discounts, order processing with status history, manual order entry, payments with FIFO on-account allocation and reversals, reports with date ranges and CSV export, settings, audit log |
 | **Retailer portal** | Mobile-first catalogue with search and categories, server-side cart, checkout, order tracking, cancel (while pending), reorder, payment ledger, profile, English / Hindi toggle |
 | **Platform admin** | Usage statistics, health check, suspend/activate businesses and users, issue password-reset links, platform audit feed |
-| **Cross-cutting** | Multi-tenant isolation, role-based access, CSRF protection, rate limiting, in-app notifications, WhatsApp click-to-chat messages, client-side order PDF, optional GST on orders |
+| **Cross-cutting** | Multi-tenant isolation, role-based access, CSRF protection, rate limiting, in-app notifications with automatic phone push alerts, WhatsApp click-to-chat messages, client-side order PDF, optional GST on orders |
 
 ## Tech stack
 
@@ -87,6 +87,8 @@ Local values live in `.dev.vars` (git-ignored). Production values are the `vars`
 | `ALLOW_DEMO_ACCOUNTS` | `true` | `false` | Allows `is_demo` users to sign in. **Never enable in production.** |
 | `DEV_SHOW_RESET_LINKS` | `true` | `false` | Returns the reset link from the forgot-password API so you can test the flow without help from another account. **Never enable in production.** |
 | `PASSWORD_HASH_ITERATIONS` | unset | unset | Optional. PBKDF2 iterations (10,000–100,000; default and maximum 100,000). See "Free-tier limits". |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | from `npm run push:keys` | Cloudflare secrets via `npm run push:keys -- --remote` | Keys for phone alerts (Web Push). Unset = alerts off. The private key is a secret: never commit it. |
+| `VAPID_SUBJECT` | unset | unset | Optional contact the push services can use (`mailto:` or `https:`). Defaults to the site's own URL. |
 
 Bindings (in `wrangler.jsonc`): `DB` (D1 database) and `ASSETS` (static frontend).
 
@@ -124,7 +126,33 @@ npm run deploy
 npm run create-admin -- --email you@example.com --name "Your Name" --password "choose-a-long-passphrase-123" --remote
 ```
 
+6. Switch on phone alerts (optional, free — see "Phone alerts" below):
+
+```bash
+npm run push:keys -- --remote
+```
+
 Wrangler prints your URL (`https://dealerlink.<your-subdomain>.workers.dev`). Wholesalers register at `/register`; retailers join through invitation links.
+
+## Phone alerts (automatic notifications)
+
+Every in-app notification is also sent automatically to the recipient's phone or computer as a push alert, even when DealerLink is closed:
+
+- **Retailers:** order accepted / processing / ready / dispatched / delivered / rejected / cancelled, orders created for them, payments recorded.
+- **Wholesalers:** new orders, orders cancelled by a retailer, retailers who join, password-reset requests.
+
+It uses the browsers' built-in Web Push service, which is free (no WhatsApp API, SMS or paid provider). Each person turns it on once per device: retailers from the banner on their home screen or **Profile → Order alerts**, wholesalers from **Settings → Order alerts on this device**. Tapping an alert opens the order.
+
+**Setup.** Alerts need one key pair, created by a script (no account or signup):
+
+- Local: `npm run push:keys` (writes `.dev.vars`), then restart `npm run dev`.
+- Live site: run `npm run db:migrate:remote` (adds the alert tables), then `npm run push:keys -- --remote` (stores the keys as Cloudflare secrets), then deploy.
+
+Keep the same keys: replacing them (`--force`) means every device must turn alerts on again. Without keys, alerts are switched off and everything else works as before.
+
+**Where it works:** Chrome, Edge, Firefox and Samsung Internet on Android and desktop. **iPhone/iPad** (iOS 16.4+) only after the user adds DealerLink to the Home Screen (Share → Add to Home Screen) and opens it from there; the app shows these instructions. Alert text is in English for now, even when the retailer uses the Hindi interface.
+
+**Not WhatsApp.** These are phone notifications, not WhatsApp messages. The WhatsApp buttons still open a ready-made message you send yourself. Fully automatic WhatsApp needs Meta's paid WhatsApp Business API, which is not included.
 
 To deploy from GitHub instead, push the repository and connect it under **Workers & Pages → Create → Import a repository** with build command `npm run build` and deploy command `npx wrangler deploy`.
 

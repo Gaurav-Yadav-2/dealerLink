@@ -14,7 +14,8 @@
     "db:seed": "node scripts/seed.mjs",
     "db:reset": "node scripts/reset-local.mjs && npm run db:migrate && npm run db:seed",
     "create-admin": "node scripts/create-admin.mjs",
-    "deploy": "npm run build && wrangler deploy"
+    "deploy": "npm run build && wrangler deploy",
+    "push:keys": "node scripts/push-keys.mjs"
   },
   "keywords": [],
   "author": "",

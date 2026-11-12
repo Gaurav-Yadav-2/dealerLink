@@ -29,6 +29,8 @@ One Worker serves both the API and the built frontend, so there is a single depl
 | **Payment allocations** | A payment is applied to one order or FIFO across the oldest unpaid orders. `payment_allocations` records exactly how, which makes reversals exact. |
 | **Shared Zod schemas** (`src/shared`) | The same validation runs in the browser (fast feedback) and on the server (authoritative). |
 | **Notifications by polling** | The bell refetches every 60 s. No WebSockets or Durable Objects, which keeps the app on the free tier. |
+| **Phone alerts via Web Push, implemented with WebCrypto** | Automatic and free (browser vendors' push services). No library: RFC 8291 encryption + RFC 8292 VAPID in `src/worker/lib/webpush.ts`, tested against the RFC 8291 example vector. |
+| **One push hook for every notification** | Instead of calling push at each call site, the API middleware runs after every successful change and pushes the notifications that change created. Each row is claimed atomically (`UPDATE … SET pushed_at … RETURNING`), so nothing is pushed twice, and any future notification type gets phone alerts automatically. Sending happens in `waitUntil`, after the response. |
 | **Charts: single hue, no pies, no dual axes** | Every chart shows one series; values are also available as tables. |
 
 ## Multi-tenancy and authorisation
@@ -146,6 +148,10 @@ Status codes: `400` malformed, `401` not signed in, `403` wrong role / CSRF / su
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/api/notifications` · POST `/read-all` · POST `/:id/read` | Notification centre |
+| GET | `/api/push/key` | Whether phone alerts are configured, and the public VAPID key |
+| POST | `/api/push/subscribe` · `/unsubscribe` · `/status` · `/test` | Turn alerts on/off for this browser, check whose they are, send a test alert |
+
+**Phone alert safeguards:** subscriptions are accepted only for the browser vendors' push hosts (Google, Mozilla, Apple, Microsoft) over HTTPS, so the server never posts to arbitrary URLs; at most 5 devices per user; at most 20 pushes per request (Workers Free allows 50 outbound requests); suspended users and deactivated retailers receive nothing; subscriptions the push service reports as gone (404/410) are deleted. One browser holds one subscription: if two accounts use the same browser, alerts go to whoever turned them on last.
 | GET | `/api/admin/stats` · `/audit` | Platform statistics, health, audit feed |
 | GET | `/api/admin/businesses` · POST `/businesses/:id/status` | Suspend / activate businesses |
 | GET | `/api/admin/users` · POST `/users/:id/status` · POST `/users/:id/reset-link` | User management |
