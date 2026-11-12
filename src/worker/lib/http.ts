@@ -14,6 +14,9 @@ export type Bindings = {
   VAPID_PRIVATE_KEY?: string;
   /** Contact for the push services (mailto: or https: URL). Defaults to the site's own URL. */
   VAPID_SUBJECT?: string;
+  /** Cloudflare Turnstile bot check. Both unset = check switched off. The site key is public; the secret is not. */
+  TURNSTILE_SITE_KEY?: string;
+  TURNSTILE_SECRET_KEY?: string;
 };
 export type AppEnv = { Bindings: Bindings; Variables: { auth: AuthCtx | null } };
 export type Ctx = Context<AppEnv>;

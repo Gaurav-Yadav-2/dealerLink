@@ -56,8 +56,8 @@ export function qs(params?: Params): string {
   return s ? `?${s}` : "";
 }
 
-async function request<T>(method: string, path: string, body?: unknown): Promise<ApiResult<T>> {
-  const headers: Record<string, string> = {};
+async function request<T>(method: string, path: string, body?: unknown, extraHeaders?: Record<string, string>): Promise<ApiResult<T>> {
+  const headers: Record<string, string> = { ...extraHeaders };
   const token = readToken();
   if (token) headers["X-DL-Session"] = token;
   if (method !== "GET") {
@@ -91,7 +91,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 
 export const api = {
   get: <T = any>(path: string, params?: Params) => request<T>("GET", path + qs(params)),
-  post: <T = any>(path: string, body?: unknown) => request<T>("POST", path, body),
+  post: <T = any>(path: string, body?: unknown, headers?: Record<string, string>) => request<T>("POST", path, body, headers),
   put: <T = any>(path: string, body?: unknown) => request<T>("PUT", path, body),
   patch: <T = any>(path: string, body?: unknown) => request<T>("PATCH", path, body),
   del: <T = any>(path: string) => request<T>("DELETE", path),

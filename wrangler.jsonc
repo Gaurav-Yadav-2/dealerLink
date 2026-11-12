@@ -21,7 +21,9 @@
   "vars": {
     "ALLOW_DEMO_ACCOUNTS": "false",
     "DEV_SHOW_RESET_LINKS": "false",
-    "ALLOWED_ORIGINS": ""
+    "ALLOWED_ORIGINS": "",
+    // Public Turnstile site key (bot check). Leave empty to switch the check off. The secret goes in `wrangler secret put TURNSTILE_SECRET_KEY`.
+    "TURNSTILE_SITE_KEY": ""
   },
   "observability": { "enabled": true }
 }

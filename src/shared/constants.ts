@@ -78,6 +78,9 @@ export const INDIAN_STATES = [
 export const MAX_ORDER_LINES = 80;
 export const INVITATION_TTL_DAYS = 7;
 export const RESET_TTL_MINUTES = 60;
-export const SESSION_TTL_DAYS = 14;
+/** A session ends after this long no matter what … */
+export const SESSION_TTL_DAYS = 7;
+/** … or after this long without any activity. */
+export const SESSION_IDLE_HOURS = 12;
 /** All business-day maths (today, daily reports) uses India Standard Time. */
 export const IST_OFFSET_MINUTES = 330;

@@ -512,8 +512,10 @@ export function RetailerPayments() {
 
 export function RetailerProfile() {
   const { t, lang, setLang } = useT();
-  const { session, logout, refresh } = useAuth();
+  const { session, logout, logoutAll, refresh } = useAuth();
   const navigate = useNavigate();
+  const [confirmAll, setConfirmAll] = useState(false);
+  const [signingOutAll, setSigningOutAll] = useState(false);
   const q = useApi<any>("/retailer/profile");
   const { register, handleSubmit, reset, formState } = useForm<any>();
   useEffect(() => {
@@ -551,7 +553,33 @@ export function RetailerProfile() {
       </Card>
       <PushAlertsCard text={pushText(t)} />
       <ChangePasswordCard title={t("profile.changePassword")} />
+      <Card>
+        <CardHeader title={t("profile.signOutAll")} description={t("profile.signOutAllHint")} />
+        <div className="p-4 sm:p-5">
+          <Button variant="dangerOutline" onClick={() => setConfirmAll(true)}>{t("profile.signOutAll")}</Button>
+        </div>
+      </Card>
       <Button variant="secondary" size="lg" className="w-full md:hidden" onClick={async () => { await logout(); navigate("/login"); }}><LogOut className="h-4 w-4" aria-hidden /> {t("nav.logout")}</Button>
+      <ConfirmDialog
+        open={confirmAll}
+        onOpenChange={setConfirmAll}
+        title={`${t("profile.signOutAll")}?`}
+        description={t("profile.signOutAllHint")}
+        confirmLabel={t("profile.signOutAll")}
+        loading={signingOutAll}
+        onConfirm={async () => {
+          setSigningOutAll(true);
+          try {
+            await logoutAll();
+            navigate("/login");
+          } catch (e) {
+            toast.error(errorMessage(e));
+          } finally {
+            setSigningOutAll(false);
+            setConfirmAll(false);
+          }
+        }}
+      />
     </div>
   );
 }

@@ -89,6 +89,8 @@ Local values live in `.dev.vars` (git-ignored). Production values are the `vars`
 | `PASSWORD_HASH_ITERATIONS` | unset | unset | Optional. PBKDF2 iterations (10,000–100,000; default and maximum 100,000). See "Free-tier limits". |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | from `npm run push:keys` | Cloudflare secrets via `npm run push:keys -- --remote` | Keys for phone alerts (Web Push). Unset = alerts off. The private key is a secret: never commit it. |
 | `VAPID_SUBJECT` | unset | unset | Optional contact the push services can use (`mailto:` or `https:`). Defaults to the site's own URL. |
+| `TURNSTILE_SITE_KEY` | unset | `vars` in `wrangler.jsonc` | Public key of your Cloudflare Turnstile widget (bot check). Empty = check off. |
+| `TURNSTILE_SECRET_KEY` | unset | Cloudflare secret (`npx wrangler secret put TURNSTILE_SECRET_KEY`) | Turnstile secret. Never commit it. Both keys must be set for the check to run. |
 
 Bindings (in `wrangler.jsonc`): `DB` (D1 database) and `ASSETS` (static frontend).
 
@@ -133,6 +135,21 @@ npm run push:keys -- --remote
 ```
 
 Wrangler prints your URL (`https://dealerlink.<your-subdomain>.workers.dev`). Wholesalers register at `/register`; retailers join through invitation links.
+
+## Bot check on sign-in (Cloudflare Turnstile)
+
+Registration, sign-in, forgot-password and invitation sign-up can require Cloudflare Turnstile, a free bot check that is usually invisible to real people. It is **off until you add keys**:
+
+1. In the Cloudflare dashboard open **Turnstile → Add widget**. Name it `DealerLink`, add your hostname (for example `dealerlink.gauravdealer.workers.dev`), choose **Managed** mode, and create it.
+2. Put the **site key** in `wrangler.jsonc` → `vars` → `TURNSTILE_SITE_KEY` (it is public).
+3. Store the **secret key**: `npx wrangler secret put TURNSTILE_SECRET_KEY` and paste it when asked.
+4. Deploy.
+
+If Cloudflare's check cannot be reached, the form is refused rather than let through. For local testing you can use Cloudflare's documented test keys (site key `1x00000000000000000000AA`, secret `1x0000000000000000000000000000000AA`, which always pass) in `.dev.vars`.
+
+## Sessions
+
+Each browser tab has its own sign-in. A session ends after **12 hours without activity** or **7 days** at most, whichever comes first, and when the tab is closed. **Sign out of all devices** (account menu for wholesalers and admins, Profile for retailers) ends every session of that account at once.
 
 ## Phone alerts (automatic notifications)
 

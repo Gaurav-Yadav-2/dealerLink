@@ -10,3 +10,6 @@ DEV_SHOW_RESET_LINKS=true
 # VAPID_PRIVATE_KEY=
 # Optional contact for push services (mailto: or https:). Defaults to the site's own URL.
 # VAPID_SUBJECT=mailto:you@example.com
+# Bot check (Cloudflare Turnstile). Leave unset to switch it off. Cloudflare's always-pass test keys:
+# TURNSTILE_SITE_KEY=1x00000000000000000000AA
+# TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA

@@ -8,6 +8,7 @@ import { INDIAN_STATES } from "@shared/constants";
 import { acceptInviteSchema, forgotSchema, loginSchema, registerSchema, resetSchema } from "@shared/schemas";
 import { Logo } from "@/components/shared";
 import { Button, buttonClass, Card, cn, ErrorState, Field, FullPageSpinner, Input, Select } from "@/components/ui";
+import { HumanCheck, useHumanCheck } from "@/components/HumanCheck";
 import { api, ApiError, errorMessage } from "@/lib/api";
 import { homeFor, useAuth, type Session } from "@/lib/auth";
 import { useApi } from "@/lib/hooks";
@@ -170,17 +171,19 @@ export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const [formError, setFormError] = useState<string | null>(null);
+  const human = useHumanCheck();
   const { register, handleSubmit, setValue, formState } = useForm<any>({ resolver: zodResolver(loginSchema) });
   const onSubmit = handleSubmit(async (values) => {
     setFormError(null);
     try {
-      const res = await api.post<Session>("/auth/login", values);
+      const res = await api.post<Session>("/auth/login", values, human.headers());
       setSession(res.data);
       const from = (location.state as any)?.from as string | undefined;
       const home = homeFor(res.data.user.role);
       navigate(from && from.startsWith(home.split("/").slice(0, 2).join("/")) ? from : home, { replace: true });
     } catch (e) {
       setFormError(errorMessage(e));
+      human.reset();
     }
   });
   return (
@@ -194,7 +197,8 @@ export function LoginPage() {
           <Input type="password" autoComplete="current-password" aria-invalid={!!formState.errors.password} {...register("password")} />
         </Field>
         <div className="flex justify-end"><TextLink to="/forgot-password">Forgot password?</TextLink></div>
-        <Button type="submit" size="lg" className="w-full" loading={formState.isSubmitting}>Sign in</Button>
+        <HumanCheck ref={human.ref} onToken={human.setToken} onStatus={human.setStatus} />
+        <Button type="submit" size="lg" className="w-full" loading={formState.isSubmitting} disabled={!human.canSubmit}>Sign in</Button>
       </form>
       {import.meta.env.DEV && (
         <div className="mt-6 rounded-lg border border-dashed border-amber-300 bg-amber-50 p-3">
@@ -220,6 +224,7 @@ export function RegisterPage() {
   const navigate = useNavigate();
   const [step, setStep] = useState<1 | 2>(1);
   const [formError, setFormError] = useState<string | null>(null);
+  const human = useHumanCheck();
   const { register, handleSubmit, trigger, watch, setError, formState } = useForm<any>({ resolver: zodResolver(registerSchema), mode: "onTouched" });
   const errors = formState.errors as Record<string, { message?: string }>;
 
@@ -237,7 +242,7 @@ export function RegisterPage() {
   const onSubmit = handleSubmit(async (values) => {
     setFormError(null);
     try {
-      const res = await api.post<Session>("/auth/register", values);
+      const res = await api.post<Session>("/auth/register", values, human.headers());
       setSession(res.data);
       toast.success("Your store is ready. Start by adding products.");
       navigate("/dashboard", { replace: true });
@@ -246,6 +251,7 @@ export function RegisterPage() {
       if (applied && ["name", "email", "phone", "password"].some((f) => (e as ApiError).details && JSON.stringify((e as ApiError).details).includes(`"${f}"`))) setStep(1);
       if (e instanceof ApiError && e.status === 409 && /email/i.test(e.message)) setStep(1);
       setFormError(errorMessage(e));
+      human.reset();
     }
   });
 
@@ -286,9 +292,10 @@ export function RegisterPage() {
               </Select>
             </Field>
           </div>
+          {step === 2 && <HumanCheck ref={human.ref} onToken={human.setToken} onStatus={human.setStatus} />}
           <div className="flex gap-2">
             <Button variant="secondary" size="lg" onClick={() => setStep(1)}>Back</Button>
-            <Button type="submit" size="lg" className="flex-1" loading={formState.isSubmitting}>Create my store</Button>
+            <Button type="submit" size="lg" className="flex-1" loading={formState.isSubmitting} disabled={!human.canSubmit}>Create my store</Button>
           </div>
         </div>
       </form>
@@ -304,6 +311,7 @@ export function AcceptInvitePage() {
   const navigate = useNavigate();
   const invite = useApi<any>(`/auth/invitations/${encodeURIComponent(token)}`);
   const [formError, setFormError] = useState<string | null>(null);
+  const human = useHumanCheck();
   const { register, handleSubmit, setError, reset, formState } = useForm<any>({ resolver: zodResolver(acceptInviteSchema) });
   const errors = formState.errors as Record<string, { message?: string }>;
   useEffect(() => {
@@ -329,13 +337,14 @@ export function AcceptInvitePage() {
   const onSubmit = handleSubmit(async (values) => {
     setFormError(null);
     try {
-      const res = await api.post<Session>(`/auth/invitations/${encodeURIComponent(token)}/accept`, values);
+      const res = await api.post<Session>(`/auth/invitations/${encodeURIComponent(token)}/accept`, values, human.headers());
       setSession(res.data);
       toast.success(`Welcome! You can now order from ${inv.wholesalerName}.`);
       navigate("/retailer/catalogue", { replace: true });
     } catch (e) {
       applyServerErrors(e, setError);
       setFormError(errorMessage(e));
+      human.reset();
     }
   });
   return (
@@ -345,7 +354,8 @@ export function AcceptInvitePage() {
         <Field label="Your name" error={errors.name?.message} required><Input autoComplete="name" {...register("name")} /></Field>
         <Field label="Email" error={errors.email?.message} hint="You will use this to sign in" required><Input type="email" inputMode="email" autoComplete="email" {...register("email")} /></Field>
         <Field label="Create a password" error={errors.password?.message} hint="At least 8 characters, with a letter and a number" required><Input type="password" autoComplete="new-password" {...register("password")} /></Field>
-        <Button type="submit" size="lg" className="w-full" loading={formState.isSubmitting}>Create account &amp; view catalogue</Button>
+        <HumanCheck ref={human.ref} onToken={human.setToken} onStatus={human.setStatus} />
+        <Button type="submit" size="lg" className="w-full" loading={formState.isSubmitting} disabled={!human.canSubmit}>Create account &amp; view catalogue</Button>
       </form>
     </AuthLayout>
   );
@@ -356,13 +366,15 @@ export function AcceptInvitePage() {
 export function ForgotPasswordPage() {
   const [done, setDone] = useState<null | { devResetToken?: string }>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const human = useHumanCheck();
   const { register, handleSubmit, formState } = useForm<any>({ resolver: zodResolver(forgotSchema) });
   const onSubmit = handleSubmit(async (values) => {
     setFormError(null);
     try {
-      setDone((await api.post("/auth/forgot-password", values)).data);
+      setDone((await api.post("/auth/forgot-password", values, human.headers())).data);
     } catch (e) {
       setFormError(errorMessage(e));
+      human.reset();
     }
   });
   if (done) {
@@ -389,7 +401,8 @@ export function ForgotPasswordPage() {
       <form className="space-y-4" onSubmit={onSubmit} noValidate>
         <FormError message={formError} />
         <Field label="Email" error={formState.errors.email?.message as string}><Input type="email" inputMode="email" autoComplete="email" autoFocus {...register("email")} /></Field>
-        <Button type="submit" size="lg" className="w-full" loading={formState.isSubmitting}>Request reset link</Button>
+        <HumanCheck ref={human.ref} onToken={human.setToken} onStatus={human.setStatus} />
+        <Button type="submit" size="lg" className="w-full" loading={formState.isSubmitting} disabled={!human.canSubmit}>Request reset link</Button>
       </form>
     </AuthLayout>
   );

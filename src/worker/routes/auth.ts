@@ -4,6 +4,7 @@ import { acceptInviteSchema, changePasswordSchema, forgotSchema, loginSchema, re
 import { authForUser, createSession, destroySession, publicAuth, requireAuth, type AuthUser } from "../lib/auth";
 import { hashPassword, randomToken, sha256Hex, verifyPassword } from "../lib/crypto";
 import { AppError, body, conflict, now, ok, uuid, type AppEnv, type Ctx } from "../lib/http";
+import { requireHuman, turnstileEnabled } from "../lib/turnstile";
 import { auditStmt, businessUserIds, isConstraintError, notifyStmt, rateLimit, uniqueSlug } from "../lib/util";
 
 export const authRoutes = new Hono<AppEnv>();
@@ -25,6 +26,20 @@ authRoutes.get("/me", (c) => {
   return ok(c, auth ? publicAuth(auth) : null);
 });
 
+/** Public settings the sign-in pages need. */
+authRoutes.get("/config", (c) => ok(c, { turnstileSiteKey: turnstileEnabled(c) ? c.env.TURNSTILE_SITE_KEY ?? null : null }));
+
+/** Ends every session of the signed-in user on every device and tab, including this one. */
+authRoutes.post("/logout-all", async (c) => {
+  const auth = requireAuth(c);
+  const db = c.env.DB;
+  const res = await db.batch([
+    db.prepare("DELETE FROM sessions WHERE user_id = ?").bind(auth.user.id),
+    auditStmt(db, { businessId: auth.business?.id ?? null, actorId: auth.user.id, action: "user.signed_out_everywhere", entityType: "user", entityId: auth.user.id }),
+  ]);
+  return ok(c, { sessionsEnded: res[0].meta.changes });
+});
+
 authRoutes.get("/check-business-name", async (c) => {
   await rateLimit(c, "check-name", "-", 60, 60);
   const name = (c.req.query("name") ?? "").trim();
@@ -35,6 +50,7 @@ authRoutes.get("/check-business-name", async (c) => {
 
 authRoutes.post("/register", async (c) => {
   await rateLimit(c, "register", "-", 10, 3600);
+  await requireHuman(c);
   const input = await body(c, registerSchema);
   const db = c.env.DB;
   if (await db.prepare("SELECT 1 FROM users WHERE email = ?").bind(input.email).first()) {
@@ -67,6 +83,7 @@ authRoutes.post("/login", async (c) => {
   const input = await body(c, loginSchema);
   await rateLimit(c, "login", input.email, 8, 600);
   await rateLimit(c, "login-ip", "-", 40, 600);
+  await requireHuman(c);
   const user = await c.env.DB.prepare("SELECT id, password_hash, status, is_demo FROM users WHERE email = ?")
     .bind(input.email)
     .first<{ id: string; password_hash: string; status: string; is_demo: number }>();
@@ -137,6 +154,7 @@ authRoutes.get("/invitations/:token", async (c) => {
 
 authRoutes.post("/invitations/:token/accept", async (c) => {
   await rateLimit(c, "invite-accept", "-", 10, 600);
+  await requireHuman(c);
   const inv = await findInvitation(c, c.req.param("token"));
   const input = await body(c, acceptInviteSchema);
   const db = c.env.DB;
@@ -188,6 +206,7 @@ authRoutes.post("/forgot-password", async (c) => {
   const input = await body(c, forgotSchema);
   await rateLimit(c, "forgot", input.email, 3, 3600);
   await rateLimit(c, "forgot-ip", "-", 15, 3600);
+  await requireHuman(c);
   const db = c.env.DB;
   const user = await db.prepare("SELECT id, name, role, status, is_demo FROM users WHERE email = ?").bind(input.email).first<any>();
   let devToken: string | undefined;

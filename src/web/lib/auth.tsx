@@ -20,6 +20,8 @@ type AuthValue = {
   loading: boolean;
   setSession: (s: Session | null) => void;
   logout: () => Promise<void>;
+  /** Ends every session of this user on every device and tab. */
+  logoutAll: () => Promise<void>;
   refresh: () => Promise<unknown>;
 };
 const AuthContext = createContext<AuthValue | null>(null);
@@ -40,6 +42,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     logout: async () => {
       await api.post("/auth/logout").catch(() => undefined);
       clearSession(); // only this tab: other tabs keep their own sessions
+      qc.setQueryData(["me"], null);
+      qc.removeQueries({ predicate: (q) => q.queryKey[0] !== "me" });
+    },
+    logoutAll: async () => {
+      await api.post("/auth/logout-all"); // throws on failure, so the caller can show the error
+      clearSession();
       qc.setQueryData(["me"], null);
       qc.removeQueries({ predicate: (q) => q.queryKey[0] !== "me" });
     },

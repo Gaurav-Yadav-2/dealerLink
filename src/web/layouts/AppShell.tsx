@@ -1,10 +1,12 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import * as Dropdown from "@radix-ui/react-dropdown-menu";
-import { BarChart3, Building2, ChevronDown, ClipboardList, ExternalLink, LayoutDashboard, LogOut, Menu, Package, Settings, ShieldCheck, Tags, Users, Wallet, X, type LucideIcon } from "lucide-react";
+import { BarChart3, Building2, ChevronDown, ClipboardList, ExternalLink, LayoutDashboard, LogOut, Menu, MonitorSmartphone, Package, Settings, ShieldCheck, Tags, Users, Wallet, X, type LucideIcon } from "lucide-react";
 import { Suspense, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import { Logo, NotificationBell } from "@/components/shared";
-import { Badge, cn, Spinner } from "@/components/ui";
+import { Badge, cn, ConfirmDialog, Spinner } from "@/components/ui";
+import { errorMessage } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useApi } from "@/lib/hooks";
 
@@ -57,7 +59,9 @@ function NavList({ items, badges, onNavigate }: { items: NavItem[]; badges: Reco
 
 /** Shell shared by the wholesaler dashboard and the (separate) platform admin panel. */
 export function AppShell({ variant }: { variant: "owner" | "admin" }) {
-  const { session, logout } = useAuth();
+  const { session, logout, logoutAll } = useAuth();
+  const [confirmAll, setConfirmAll] = useState(false);
+  const [signingOutAll, setSigningOutAll] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const [drawer, setDrawer] = useState(false);
@@ -140,10 +144,36 @@ export function AppShell({ variant }: { variant: "owner" | "admin" }) {
               >
                 <LogOut className="h-4 w-4" aria-hidden /> Sign out
               </Dropdown.Item>
+              <Dropdown.Item
+                onSelect={() => setConfirmAll(true)}
+                className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-700 outline-none data-[highlighted]:bg-red-50"
+              >
+                <MonitorSmartphone className="h-4 w-4" aria-hidden /> Sign out of all devices
+              </Dropdown.Item>
             </Dropdown.Content>
           </Dropdown.Portal>
         </Dropdown.Root>
       </header>
+      <ConfirmDialog
+        open={confirmAll}
+        onOpenChange={setConfirmAll}
+        title="Sign out of all devices?"
+        description="This ends your sign-in on every phone, computer and browser tab, including this one. Use it if you signed in on a shared device or think someone else has access."
+        confirmLabel="Sign out everywhere"
+        loading={signingOutAll}
+        onConfirm={async () => {
+          setSigningOutAll(true);
+          try {
+            await logoutAll();
+            navigate("/login");
+          } catch (e) {
+            toast.error(errorMessage(e));
+          } finally {
+            setSigningOutAll(false);
+            setConfirmAll(false);
+          }
+        }}
+      />
 
       <main key={location.pathname.split("/").slice(0, 3).join("/")} className="mx-auto w-full max-w-7xl px-3 py-5 sm:px-6 sm:py-6">
         <Suspense fallback={<div className="grid place-items-center py-24"><Spinner /></div>}>

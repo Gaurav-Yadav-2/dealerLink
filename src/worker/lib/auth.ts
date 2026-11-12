@@ -1,5 +1,5 @@
 import type { MiddlewareHandler } from "hono";
-import { SESSION_TTL_DAYS } from "../../shared/constants";
+import { SESSION_IDLE_HOURS, SESSION_TTL_DAYS } from "../../shared/constants";
 import { randomToken, sha256Hex } from "./crypto";
 import { AppError, forbidden, now, uuid, type AppEnv, type Ctx } from "./http";
 
@@ -34,8 +34,9 @@ export async function createSession(c: Ctx, userId: string): Promise<{ id: strin
   const token = randomToken();
   const csrf = randomToken(24);
   const expires = new Date(Date.now() + SESSION_TTL_DAYS * 86400000);
-  await c.env.DB.prepare("INSERT INTO sessions (id, user_id, token_hash, csrf_token, expires_at, created_at) VALUES (?,?,?,?,?,?)")
-    .bind(id, userId, await sha256Hex(token), csrf, expires.toISOString(), now())
+  const ts = now();
+  await c.env.DB.prepare("INSERT INTO sessions (id, user_id, token_hash, csrf_token, expires_at, created_at, last_seen_at) VALUES (?,?,?,?,?,?,?)")
+    .bind(id, userId, await sha256Hex(token), csrf, expires.toISOString(), ts, ts)
     .run();
   return { id, csrf, token };
 }
@@ -53,14 +54,23 @@ export async function loadAuth(c: Ctx): Promise<AuthCtx | null> {
   const db = c.env.DB;
   const row = await db
     .prepare(
-      `SELECT s.id AS session_id, s.csrf_token, u.id, u.email, u.name, u.phone, u.role, u.is_demo, u.status
+      `SELECT s.id AS session_id, s.csrf_token, COALESCE(s.last_seen_at, s.created_at) AS last_seen_at, u.id, u.email, u.name, u.phone, u.role, u.is_demo, u.status
        FROM sessions s JOIN users u ON u.id = s.user_id
        WHERE s.token_hash = ? AND s.expires_at > ?`,
     )
     .bind(await sha256Hex(token), now())
-    .first<{ session_id: string; csrf_token: string; status: string } & AuthUser>();
+    .first<{ session_id: string; csrf_token: string; last_seen_at: string | null; status: string } & AuthUser>();
   if (!row || row.status !== "active") return null;
   if (row.is_demo && c.env.ALLOW_DEMO_ACCOUNTS !== "true") return null;
+
+  // Idle timeout: a session unused for SESSION_IDLE_HOURS is ended. Activity is recorded at most every 5 minutes
+  // so normal browsing costs at most one small write per 5 minutes per session.
+  const idleMs = Date.now() - Date.parse(row.last_seen_at ?? "1970-01-01T00:00:00Z");
+  if (idleMs > SESSION_IDLE_HOURS * 3600_000) {
+    await db.prepare("DELETE FROM sessions WHERE id = ?").bind(row.session_id).run();
+    return null;
+  }
+  if (idleMs > 5 * 60_000) await db.prepare("UPDATE sessions SET last_seen_at = ? WHERE id = ?").bind(now(), row.session_id).run();
 
   const user: AuthUser = { id: row.id, email: row.email, name: row.name, phone: row.phone, role: row.role, is_demo: row.is_demo };
   return authForUser(db, user, row.session_id, row.csrf_token);

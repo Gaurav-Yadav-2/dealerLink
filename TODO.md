@@ -18,6 +18,8 @@ Status as of 2026-11-11. "Tested" means covered by the automated suite (`npm tes
 - [x] Retailer invitations: hashed, expiring, single-use, revocable
 - [x] Password reset via shareable one-time links (no email — documented limitation)
 - [x] Rate limiting on auth, invitation and reset endpoints
+- [x] Optional Cloudflare Turnstile bot check on register / login / forgot-password / invitation *(server logic tested; widget needs your Turnstile keys — not yet enabled or tried on the live site)*
+- [x] Sessions: 12-hour idle timeout, 7-day maximum; "Sign out of all devices"
 - [x] Account status: retailer deactivation, user suspension, business suspension
 - [x] Two-step registration UI with live name availability *(UI: manual)*
 
