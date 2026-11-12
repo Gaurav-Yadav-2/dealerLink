@@ -1,0 +1,67 @@
+name,sku,description,category,unit,price,mrp,gst_rate,min_order_qty,stock_qty,availability,image_url,active
+LED Bulb 7W E27 Warm White,LED-E27-7W,Warm white screw-cap bulb,Lighting,piece,58,100,18,10,500,,,yes
+LED Bulb 9W B22 Cool Daylight,LED-B22-9W,Cool daylight pin-type bulb,Lighting,piece,62,110,18,10,1200,,,yes
+LED Bulb 12W B22 Cool Daylight,LED-B22-12W,Cool daylight pin-type bulb,Lighting,piece,78,135,18,10,900,,,yes
+LED Bulb 15W B22 Cool Daylight,LED-B22-15W,Cool daylight pin-type bulb,Lighting,piece,98,170,18,10,600,,,yes
+Emergency LED Bulb 9W Rechargeable,EMG-9W,Rechargeable bulb with 3 hour backup,Lighting,piece,235,420,18,6,85,,,yes
+LED Night Lamp 0.5W,NIGHT-LAMP,Plug-in night lamp,Lighting,piece,45,99,18,12,420,,,yes
+LED Tube Light 10W 2ft,TUBE-10W,Cool daylight tube light,Lighting,piece,135,240,18,6,300,,,yes
+LED Tube Light 20W 4ft,TUBE-20W,Cool daylight tube light,Lighting,piece,195,340,18,6,400,,,yes
+LED Batten 22W 4ft,BATTEN-22W,Slim batten with built-in driver,Lighting,piece,245,420,18,6,250,,,yes
+LED Panel Light 12W Round Recessed,PANEL-12W-R,Recessed ceiling panel,Lighting,piece,235,420,18,4,180,,,yes
+LED Panel Light 15W Square Surface,PANEL-15W-S,Surface mount ceiling panel,Lighting,piece,285,499,18,4,18,,,yes
+LED Flood Light 50W,FLOOD-50W,Weatherproof outdoor flood light,Lighting,piece,640,1150,18,2,60,,,yes
+LED Flood Light 100W,FLOOD-100W,Weatherproof outdoor flood light,Lighting,piece,1180,2100,18,2,35,,,yes
+LED Strip Light 5m Warm White,STRIP-5M-WW,5 metre strip with adaptor,Lighting,set,310,599,18,2,90,,,yes
+Modular Switch 6A One-way,SW-6A-1W,One module white,Switches & Sockets,piece,24,45,18,20,1500,,,yes
+Modular Switch 6A Two-way,SW-6A-2W,One module white,Switches & Sockets,piece,38,70,18,20,900,,,yes
+Modular Switch 16A,SW-16A,One module heavy duty,Switches & Sockets,piece,52,95,18,20,700,,,yes
+Modular Socket 6A 3-pin,SOC-6A,Two module white,Switches & Sockets,piece,58,105,18,10,700,,,yes
+Modular Socket 16A 3-pin,SOC-16A,Two module heavy duty,Switches & Sockets,piece,108,195,18,10,0,,,yes
+Modular Fan Regulator,REG-MOD,Step type two module,Switches & Sockets,piece,125,225,18,10,320,,,yes
+Modular Bell Push Switch,BELL-PUSH,One module with indicator,Switches & Sockets,piece,48,90,18,10,260,,,yes
+Switch Plate 2 Module White,PLATE-2M,Cover plate with frame,Switches & Sockets,piece,42,80,18,10,600,,,yes
+Switch Plate 4 Module White,PLATE-4M,Cover plate with frame,Switches & Sockets,piece,55,100,18,10,420,,,yes
+Switch Plate 6 Module White,PLATE-6M,Cover plate with frame,Switches & Sockets,piece,72,130,18,10,310,,,yes
+3-pin Top Plug 6A,PLUG-6A,Standard 6A plug,Switches & Sockets,piece,18,35,18,20,1800,,,yes
+Batten Holder B22,HOLDER-B22,Bayonet bulb holder,Switches & Sockets,piece,14,28,18,25,2000,,,yes
+Ceiling Rose 2 Plate,ROSE-2P,Ceiling rose,Switches & Sockets,piece,12,25,18,25,1500,,,yes
+Extension Board 4 Socket 2m,EXT-4S-2M,4 socket board with switch and 2m cord,Switches & Sockets,piece,225,410,18,6,140,,,yes
+Extension Board 6 Socket 3m Surge,EXT-6S-3M,6 socket board with surge guard,Switches & Sockets,piece,365,650,18,4,75,,,yes
+FR PVC Copper Wire 0.75 sq mm 90m,WIRE-0.75,Flame retardant single core 90 metre coil,Wires & Cables,box,780,1180,18,1,80,,,yes
+FR PVC Copper Wire 1.0 sq mm 90m,WIRE-1.0,Flame retardant single core 90 metre coil,Wires & Cables,box,1050,1580,18,1,75,,,yes
+FR PVC Copper Wire 1.5 sq mm 90m,WIRE-1.5,Flame retardant single core 90 metre coil,Wires & Cables,box,1580,2400,18,1,60,,,yes
+FR PVC Copper Wire 2.5 sq mm 90m,WIRE-2.5,Flame retardant single core 90 metre coil,Wires & Cables,box,2520,3850,18,1,44,,,yes
+FR PVC Copper Wire 4.0 sq mm 90m,WIRE-4.0,Flame retardant single core 90 metre coil,Wires & Cables,box,3950,6000,18,1,30,,,yes
+FR PVC Copper Wire 6.0 sq mm 90m,WIRE-6.0,Flame retardant single core 90 metre coil,Wires & Cables,box,5900,8900,18,1,22,,,yes
+Flexible Cable 3 Core 1.0 sq mm 90m,FLEX-3C-1.0,Round flexible copper cable,Wires & Cables,box,3350,5200,18,1,28,,,yes
+Coaxial TV Cable RG6 90m,COAX-RG6,Copper coaxial cable for TV and DTH,Wires & Cables,box,1250,2000,18,1,40,,,yes
+PVC Conduit Pipe 20mm 3m,CONDUIT-20MM,Heavy duty ISI conduit pipe,Conduits & Accessories,piece,38,65,18,20,800,,,yes
+PVC Conduit Pipe 25mm 3m,CONDUIT-25MM,Heavy duty ISI conduit pipe,Conduits & Accessories,piece,55,95,18,20,650,,,yes
+PVC Casing Capping 3/4 inch 2m,CASING-34,Casing and capping strip,Conduits & Accessories,piece,24,42,18,20,500,,,yes
+PVC Junction Box 4 Way,JBOX-4W,Round junction box,Conduits & Accessories,piece,16,30,18,20,900,,,yes
+Cable Ties 200mm Pack of 100,TIE-200,White nylon cable ties,Conduits & Accessories,packet,48,90,18,10,380,,,yes
+Cable Ties 300mm Pack of 100,TIE-300,White nylon cable ties,Conduits & Accessories,packet,95,170,18,10,260,,,yes
+Wire Clips 8mm Pack of 100,CLIP-8MM,Nail type wire clips,Conduits & Accessories,packet,28,55,18,10,450,,,yes
+MCB 6A Single Pole,MCB-SP-6A,10kA single pole breaker,MCB & Distribution,piece,118,215,18,6,300,,,yes
+MCB 16A Single Pole,MCB-SP-16A,10kA single pole breaker,MCB & Distribution,piece,118,215,18,6,320,,,yes
+MCB 32A Single Pole,MCB-SP-32A,10kA single pole breaker,MCB & Distribution,piece,125,230,18,6,240,,,yes
+MCB 32A Double Pole,MCB-DP-32A,10kA double pole breaker,MCB & Distribution,piece,395,720,18,4,110,,,yes
+MCB 32A Triple Pole,MCB-TP-32A,10kA triple pole breaker,MCB & Distribution,piece,720,1320,18,2,60,,,yes
+RCCB 40A 30mA Double Pole,RCCB-40A,Earth leakage protection,MCB & Distribution,piece,1280,2350,18,2,40,,,yes
+MCB Distribution Box 4 Way SPN,DB-4W,Double door metal box,MCB & Distribution,piece,420,780,18,2,55,,,yes
+MCB Distribution Box 8 Way SPN,DB-8W,Double door metal box,MCB & Distribution,piece,740,1350,18,2,30,,,yes
+Ceiling Fan 1200mm Brown,FAN-1200-BR,3 blade high speed fan,Fans,piece,1450,2190,18,2,35,,,yes
+Ceiling Fan 1200mm White,FAN-1200-WH,3 blade high speed fan,Fans,piece,1450,2190,18,2,32,,,yes
+Pedestal Fan 400mm,FAN-PED-400,Oscillating pedestal fan,Fans,piece,1780,2790,18,2,20,,,yes
+Wall Fan 400mm,FAN-WALL-400,Oscillating wall mount fan,Fans,piece,1650,2590,18,2,18,,,yes
+Exhaust Fan 150mm,FAN-EXH-6IN,Kitchen and bathroom exhaust fan,Fans,piece,620,995,18,2,45,,,yes
+Fan Capacitor 2.5 mfd,CAP-FAN-25,Ceiling fan capacitor,Fans,piece,28,55,18,10,600,,,yes
+Insulation Tape Black Pack of 10,TAPE-BLK-10,PVC electrical tape,Tools & Tapes,packet,90,150,18,5,260,,,yes
+Digital Multimeter,MM-DIGI,Basic digital multimeter,Tools & Tapes,piece,395,690,18,2,25,,,yes
+Neon Tester Screwdriver,TESTER-NEON,Voltage tester,Tools & Tapes,piece,18,40,18,12,700,,,yes
+Wire Stripper and Cutter,STRIPPER,Insulated handle stripper,Tools & Tapes,piece,135,250,18,3,80,,,yes
+Soldering Iron 25W,SOLDER-25W,Pencil type soldering iron,Tools & Tapes,piece,165,295,18,3,60,,,yes
+Alkaline AA Battery Pack of 4,BAT-AA-4,Long life alkaline cells,Batteries & Torches,packet,38,60,18,12,500,,,yes
+Alkaline AAA Battery Pack of 4,BAT-AAA-4,Long life alkaline cells,Batteries & Torches,packet,36,58,18,12,450,,,yes
+LED Rechargeable Torch,TORCH-RC,Rechargeable torch with USB cable,Batteries & Torches,piece,185,349,18,6,12,,,yes
