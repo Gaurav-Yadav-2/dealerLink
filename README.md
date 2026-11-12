@@ -147,6 +147,17 @@ Registration, sign-in, forgot-password and invitation sign-up can require Cloudf
 
 If Cloudflare's check cannot be reached, the form is refused rather than let through. For local testing you can use Cloudflare's documented test keys (site key `1x00000000000000000000AA`, secret `1x0000000000000000000000000000000AA`, which always pass) in `.dev.vars`.
 
+## Install as an app, and link previews
+
+DealerLink can be installed on phones and computers. It then opens from the home screen with its own name and icon, full-screen, with no web address shown, starting at the sign-in page.
+
+- **Android / desktop Chrome, Edge, Samsung Internet:** an **Install app** button appears in the header (and on Settings / Profile) when the browser allows it.
+- **iPhone / iPad:** Safari → Share → **Add to Home Screen** (the app shows these steps).
+
+Shared links show a preview card with the DealerLink name, a one-line description and the icon (Open Graph tags in `index.html`). The preview image URL in `index.html` is absolute; **change it if the site moves to a new domain.** WhatsApp caches previews, so changes can take a while to appear for a link that was already shared.
+
+The real web address still appears in a normal browser tab: browsers do not let a site hide it, and the site's security settings block showing it inside another site's frame.
+
 ## Sessions
 
 Each browser tab has its own sign-in. A session ends after **12 hours without activity** or **7 days** at most, whichever comes first, and when the tab is closed. **Sign out of all devices** (account menu for wholesalers and admins, Profile for retailers) ends every session of that account at once.

@@ -1,15 +1,20 @@
 {
+  "id": "/",
   "name": "DealerLink",
   "short_name": "DealerLink",
   "description": "Wholesale ordering, retailer pricing and payment tracking.",
-  "start_url": "/",
+  "lang": "en-IN",
+  "start_url": "/login",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#f4f5f8",
+  "orientation": "portrait",
+  "background_color": "#1e2a5e",
   "theme_color": "#1e2a5e",
+  "categories": ["business", "shopping", "productivity"],
   "icons": [
-    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
     { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }
   ]
 }

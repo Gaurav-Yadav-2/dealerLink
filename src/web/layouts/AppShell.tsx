@@ -5,6 +5,7 @@ import { Suspense, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Logo, NotificationBell } from "@/components/shared";
+import { InstallAppButton } from "@/components/InstallApp";
 import { Badge, cn, ConfirmDialog, Spinner } from "@/components/ui";
 import { errorMessage } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -116,6 +117,7 @@ export function AppShell({ variant }: { variant: "owner" | "admin" }) {
         <div className="hidden flex-1 items-center gap-2 lg:flex">
           {session?.user.isDemo ? <Badge tone="warning">Demo account — sample data</Badge> : null}
         </div>
+        <InstallAppButton label="Install app" />
         <NotificationBell />
         <Dropdown.Root>
           <Dropdown.Trigger className="flex h-9 items-center gap-2 rounded-lg pr-1.5 pl-1 text-sm hover:bg-slate-100" aria-label="Account menu">

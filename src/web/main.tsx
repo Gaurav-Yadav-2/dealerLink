@@ -7,6 +7,9 @@ import App from "./App";
 import "./index.css";
 import { ApiError } from "./lib/api";
 import { AuthProvider } from "./lib/auth";
+import { initInstallPrompt } from "./lib/install";
+
+initInstallPrompt();
 
 const queryClient: QueryClient = new QueryClient({
   queryCache: new QueryCache({

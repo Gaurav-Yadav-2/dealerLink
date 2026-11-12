@@ -2,6 +2,7 @@ import { ClipboardList, Home, Languages, LogOut, ShoppingCart, Store, User, Wall
 import { Suspense } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { NotificationBell } from "@/components/shared";
+import { InstallAppButton } from "@/components/InstallApp";
 import { cn, Spinner } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { useApi } from "@/lib/hooks";
@@ -46,6 +47,7 @@ function Shell() {
             <Languages className="h-4 w-4" aria-hidden />
             {lang === "en" ? "हिंदी" : "English"}
           </button>
+          <InstallAppButton light label={t("install.button")} />
           <NotificationBell light />
           <Link to="/retailer/cart" className="relative grid h-9 w-9 place-items-center rounded-lg text-white/90 hover:bg-white/10" aria-label={`${t("nav.cart")} (${cartCount})`}>
             <ShoppingCart className="h-[18px] w-[18px]" />

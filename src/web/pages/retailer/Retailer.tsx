@@ -13,6 +13,7 @@ import { formatDate, formatDateTime, formatGstRate, formatINR, timeAgo } from "@
 import { useAction, useApi, useUrlFilters } from "@/lib/hooks";
 import { useT, type TKey } from "@/lib/i18n";
 import { PushAlertsBanner, PushAlertsCard, type PushText } from "@/components/PushAlerts";
+import { InstallAppCard } from "@/components/InstallApp";
 import { downloadOrderPdf } from "@/lib/pdf";
 import { messages } from "@/lib/whatsapp";
 import { ProductThumb } from "../dashboard/Products";
@@ -551,6 +552,7 @@ export function RetailerProfile() {
           ))}
         </div>
       </Card>
+      <InstallAppCard text={{ title: t("install.title"), desc: t("install.desc"), button: t("install.button"), ios: t("install.ios"), installed: t("install.installed"), done: t("install.done") }} />
       <PushAlertsCard text={pushText(t)} />
       <ChangePasswordCard title={t("profile.changePassword")} />
       <Card>
