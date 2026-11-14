@@ -147,6 +147,25 @@ Registration, sign-in, forgot-password and invitation sign-up can require Cloudf
 
 If Cloudflare's check cannot be reached, the form is refused rather than let through. For local testing you can use Cloudflare's documented test keys (site key `1x00000000000000000000AA`, secret `1x0000000000000000000000000000000AA`, which always pass) in `.dev.vars`.
 
+## Per-business feature control (platform admin)
+
+The platform admin can switch parts of DealerLink on or off for each business: **Admin → Businesses → Features**. Every feature is on by default; changes apply on the business's next request and never delete data (switching a feature back on restores it — e.g. saved special prices).
+
+| Feature | When switched off |
+|---|---|
+| Retailer-specific pricing | Every retailer pays the standard price; price lists can't be edited |
+| GST on orders | Orders are created without GST (the wholesaler's own GST setting is kept) |
+| Phone alerts | Can't be turned on; no push alerts are sent (in-app notifications stay) |
+| Product photo upload | No uploads; existing photos and image links keep working |
+| CSV import / export | Product import/export and report downloads are blocked |
+| Reports | The Reports section is blocked; the overview dashboard stays |
+| Manual order entry | The wholesaler can't create orders for retailers; retailers still order |
+| On-account payments | Every payment must be recorded against a specific order |
+| WhatsApp buttons | WhatsApp buttons are hidden (screen only — they just open WhatsApp) |
+| Hindi for retailers | The retailer app is shown in English |
+
+All except the last two are enforced by the API (it returns `403 FEATURE_DISABLED`), not just hidden. The wholesaler sees which features are off under **Settings**. Changes are recorded in the audit log.
+
 ## Product photos
 
 When adding or editing a product, wholesalers can **take a photo with the phone camera**, **choose one from the gallery / computer**, drag one in, or paste an image link. The browser rotates, resizes (max ~1000 px) and compresses each photo before upload — a several-MB phone photo becomes roughly 50–150 KB — so uploads are quick on slow connections.

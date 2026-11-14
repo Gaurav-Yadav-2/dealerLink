@@ -2,9 +2,14 @@ import { Hono } from "hono";
 import { ownerCtx, ownerOnly } from "../lib/auth";
 import { dateRange, istDateSql, ok, type AppEnv } from "../lib/http";
 import { NOT_VOID } from "../lib/orders";
+import { requireFeature } from "../lib/features";
 
 export const reportRoutes = new Hono<AppEnv>();
 reportRoutes.use("*", ownerOnly);
+reportRoutes.use("/reports/*", async (c, next) => {
+  requireFeature(c, "reports");
+  await next();
+});
 
 const day = istDateSql("o.created_at");
 const PERIODS: Record<string, string> = {

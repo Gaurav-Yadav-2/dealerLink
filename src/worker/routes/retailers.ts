@@ -7,6 +7,7 @@ import { body, conflict, invalid, like, notFound, now, ok, pageParams, uuid, typ
 import { NOT_VOID, retailerLedger } from "../lib/orders";
 import { auditStmt, isConstraintError, rateLimit } from "../lib/util";
 import { issueResetToken } from "./auth";
+import { featureOn, requireFeature } from "../lib/features";
 
 export const retailerMgmtRoutes = new Hono<AppEnv>();
 retailerMgmtRoutes.use("*", ownerOnly);
@@ -201,22 +202,25 @@ retailerMgmtRoutes.get("/retailers/:id/prices", async (c) => {
   }
   if (c.req.query("onlyOverrides") === "1") where.push("rp.id IS NOT NULL");
   if (c.req.query("activeOnly") === "1") where.push("p.is_active = 1");
-  const join = "LEFT JOIN retailer_product_prices rp ON rp.product_id = p.id AND rp.retailer_id = ? AND rp.business_id = p.business_id";
+  // with retailer pricing switched off, the list shows standard prices (used by manual order entry)
+  const join = "LEFT JOIN retailer_product_prices rp ON rp.product_id = p.id AND rp.retailer_id = ? AND rp.business_id = p.business_id AND 1 = ?";
+  const usePricing = featureOn(c, "retailerPricing") ? 1 : 0;
   const w = where.join(" AND ");
   const [count, rows] = await db.batch([
-    db.prepare(`SELECT COUNT(*) AS n FROM products p ${join} WHERE ${w}`).bind(retailer.id, ...params),
+    db.prepare(`SELECT COUNT(*) AS n FROM products p ${join} WHERE ${w}`).bind(retailer.id, usePricing, ...params),
     db.prepare(
       `SELECT p.id, p.name, p.sku, p.unit, p.is_active, p.min_order_qty, p.stock_qty, p.availability, p.gst_rate_bp,
               p.price_paise AS standard_price_paise, rp.price_paise AS override_price_paise,
               COALESCE(rp.price_paise, p.price_paise) AS effective_price_paise
        FROM products p ${join} WHERE ${w} ORDER BY p.name COLLATE NOCASE LIMIT ? OFFSET ?`,
-    ).bind(retailer.id, ...params, pageSize, offset),
+    ).bind(retailer.id, usePricing, ...params, pageSize, offset),
   ]);
   return ok(c, rows.results, { page, pageSize, total: (count.results[0] as any).n });
 });
 
 retailerMgmtRoutes.put("/retailers/:id/prices", async (c) => {
   const { business, user } = ownerCtx(c);
+  requireFeature(c, "retailerPricing");
   const db = c.env.DB;
   const retailer = await getRetailer(db, business.id, c.req.param("id"));
   const input = await body(c, retailerPricesSchema);
@@ -240,6 +244,7 @@ retailerMgmtRoutes.put("/retailers/:id/prices", async (c) => {
 
 retailerMgmtRoutes.post("/retailers/:id/prices/bulk", async (c) => {
   const { business, user } = ownerCtx(c);
+  requireFeature(c, "retailerPricing");
   const db = c.env.DB;
   const retailer = await getRetailer(db, business.id, c.req.param("id"));
   const input = await body(c, bulkPriceSchema);

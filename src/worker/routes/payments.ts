@@ -6,6 +6,7 @@ import { body, conflict, invalid, istDate, like, notFound, now, ok, pageParams, 
 import { NOT_VOID } from "../lib/orders";
 import { auditStmt, inr, isConstraintError, notifyStmt } from "../lib/util";
 import { getRetailer } from "./retailers";
+import { requireFeature } from "../lib/features";
 
 export const paymentRoutes = new Hono<AppEnv>();
 paymentRoutes.use("*", ownerOnly);
@@ -71,6 +72,7 @@ paymentRoutes.get("/payments", async (c) => {
 paymentRoutes.post("/payments", async (c) => {
   const { business, user } = ownerCtx(c);
   const input = await body(c, paymentSchema);
+  if (!input.orderId) requireFeature(c, "onAccountPayments");
   const db = c.env.DB;
   const retailer = await getRetailer(db, business.id, input.retailerId);
   if (input.paymentDate > istDate(new Date())) throw invalid("paymentDate: Payment date cannot be in the future");

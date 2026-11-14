@@ -2,6 +2,8 @@ import type { MiddlewareHandler } from "hono";
 import { SESSION_IDLE_HOURS, SESSION_TTL_DAYS } from "../../shared/constants";
 import { randomToken, sha256Hex } from "./crypto";
 import { AppError, forbidden, now, uuid, type AppEnv, type Ctx } from "./http";
+import type { FeatureSet } from "../../shared/features";
+import { loadFeatures } from "./features";
 
 /**
  * Sessions are per browser tab. The web app keeps the session token in the tab's own sessionStorage and sends it in
@@ -21,7 +23,8 @@ export type RetailerRow = {
   status: string; registered_at: string | null; created_at: string;
 };
 export type AuthUser = { id: string; email: string; name: string; phone: string | null; role: "owner" | "retailer" | "admin"; is_demo: number };
-export type AuthCtx = { sessionId: string; csrfToken: string; user: AuthUser; business: BusinessRow | null; retailer: RetailerRow | null };
+/** `features` is the business's feature switches (null for the platform admin, who has no business). */
+export type AuthCtx = { sessionId: string; csrfToken: string; user: AuthUser; business: BusinessRow | null; retailer: RetailerRow | null; features: FeatureSet | null };
 
 export const BUSINESS_COLS =
   "b.id, b.name, b.slug, b.phone, b.email, b.address, b.city, b.state, b.gstin, b.about, b.status, b.track_inventory, b.low_stock_threshold, b.gst_enabled, b.order_prefix, b.created_at";
@@ -91,7 +94,10 @@ export async function authForUser(db: D1Database, user: AuthUser, sessionId: str
       business = await db.prepare(`SELECT ${BUSINESS_COLS} FROM businesses b WHERE b.id = ?`).bind(retailer.business_id).first<BusinessRow>();
     }
   }
-  return { sessionId, csrfToken, user, business, retailer };
+  const features = business ? await loadFeatures(db, business.id) : null;
+  // GST switched off by the admin overrides the wholesaler's own GST setting everywhere (pricing, cart, orders).
+  if (business && features && !features.gst) business = { ...business, gst_enabled: 0 };
+  return { sessionId, csrfToken, user, business, retailer, features };
 }
 
 export function requireAuth(c: Ctx): AuthCtx {
@@ -130,5 +136,5 @@ export const adminOnly: MiddlewareHandler<AppEnv> = async (c, next) => { adminCt
 
 /** Shape of the authenticated user returned to the browser. Contains no secrets. */
 export function publicAuth(auth: AuthCtx) {
-  return { user: auth.user, business: auth.business, retailer: auth.retailer, csrfToken: auth.csrfToken };
+  return { user: auth.user, business: auth.business, retailer: auth.retailer, csrfToken: auth.csrfToken, features: auth.features };
 }

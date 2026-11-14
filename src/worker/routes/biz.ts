@@ -3,6 +3,7 @@ import { businessSettingsSchema } from "../../shared/schemas";
 import { BUSINESS_COLS, ownerCtx, ownerOnly } from "../lib/auth";
 import { body, conflict, istDate, istDateSql, now, ok, type AppEnv } from "../lib/http";
 import { auditStmt, isConstraintError } from "../lib/util";
+import { featureOn } from "../lib/features";
 
 export const bizRoutes = new Hono<AppEnv>();
 bizRoutes.use("*", ownerOnly);
@@ -94,10 +95,13 @@ bizRoutes.patch("/settings", async (c) => {
     await db.batch([
       db.prepare(
         `UPDATE businesses SET name = ?, phone = ?, email = ?, address = ?, city = ?, state = ?, gstin = ?, about = ?,
-           track_inventory = ?, low_stock_threshold = ?, gst_enabled = ?, order_prefix = ?, updated_at = ? WHERE id = ?`,
+           track_inventory = ?, low_stock_threshold = ?, gst_enabled = CASE WHEN ? = 1 THEN ? ELSE gst_enabled END,
+           order_prefix = ?, updated_at = ? WHERE id = ?`,
       ).bind(
         input.name, input.phone ?? null, input.email ?? null, input.address ?? null, input.city ?? null, input.state ?? null,
-        input.gstin ?? null, input.about ?? null, input.trackInventory ? 1 : 0, input.lowStockThreshold, input.gstEnabled ? 1 : 0,
+        input.gstin ?? null, input.about ?? null, input.trackInventory ? 1 : 0, input.lowStockThreshold,
+        // while GST is switched off by the admin, keep the wholesaler's own GST choice untouched for when it returns
+        featureOn(c, "gst") ? 1 : 0, input.gstEnabled ? 1 : 0,
         input.orderPrefix, now(), business.id,
       ),
       auditStmt(db, { businessId: business.id, actorId: user.id, action: "business.settings_updated", entityType: "business", entityId: business.id }),

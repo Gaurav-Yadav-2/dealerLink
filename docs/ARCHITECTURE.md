@@ -30,6 +30,7 @@ One Worker serves both the API and the built frontend, so there is a single depl
 | **Shared Zod schemas** (`src/shared`) | The same validation runs in the browser (fast feedback) and on the server (authoritative). |
 | **Notifications by polling** | The bell refetches every 60 s. No WebSockets or Durable Objects, which keeps the app on the free tier. |
 | **Phone alerts via Web Push, implemented with WebCrypto** | Automatic and free (browser vendors' push services). No library: RFC 8291 encryption + RFC 8292 VAPID in `src/worker/lib/webpush.ts`, tested against the RFC 8291 example vector. |
+| **Per-business feature switches** | `business_features` stores only explicit switches (missing row = on). They are loaded with the session (`authForUser`) and exposed as `features` on `/api/auth/me`. Server checks use `requireFeature()`; price lookups take a `useSpecialPrices` flag; a GST switch-off overrides `gst_enabled` in the session's business row. One codebase for every customer — customisation is configuration, never forked code. |
 | **One push hook for every notification** | Instead of calling push at each call site, the API middleware runs after every successful change and pushes the notifications that change created. Each row is claimed atomically (`UPDATE … SET pushed_at … RETURNING`), so nothing is pushed twice, and any future notification type gets phone alerts automatically. Sending happens in `waitUntil`, after the response. |
 | **Charts: single hue, no pies, no dual axes** | Every chart shows one series; values are also available as tables. |
 

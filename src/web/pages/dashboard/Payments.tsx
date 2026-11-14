@@ -5,7 +5,7 @@ import { PAYMENT_METHOD_LABELS, PAYMENT_METHODS } from "@shared/constants";
 import { WhatsAppLink } from "@/components/shared";
 import { Badge, Button, Card, EmptyState, ErrorState, Field, Input, ListSkeleton, Modal, ModalFooter, PageHeader, Pagination, SearchInput, Select, Stat, Table, Td, Textarea, Th } from "@/components/ui";
 import { api } from "@/lib/api";
-import { useAuth } from "@/lib/auth";
+import { useAuth, useFeature } from "@/lib/auth";
 import { formatDate, formatINR, paiseToRupeesString, rupeesToPaise, todayIST } from "@/lib/format";
 import { useAction, useApi, useUrlFilters } from "@/lib/hooks";
 import { messages } from "@/lib/whatsapp";
@@ -40,12 +40,21 @@ export function RecordPaymentDialog({ open, onClose, retailer, order }: { open: 
     }
   }, [open, retailer?.id, order?.id]);
 
-  const owing = useApi<any[]>(open && !retailer ? "/biz/reports/outstanding" : null);
+  const reportsOn = useFeature("reports");
+  const onAccountOn = useFeature("onAccountPayments");
+  // retailers who owe money: from the outstanding report, or (with Reports switched off) from the retailer list
+  const owingReport = useApi<any[]>(open && !retailer && reportsOn ? "/biz/reports/outstanding" : null);
+  const owingList = useApi<any[]>(open && !retailer && !reportsOn ? "/biz/retailers" : null, { pageSize: 100 });
+  const owing = reportsOn
+    ? (owingReport.data?.data ?? []).map((r) => ({ id: r.retailerId, name: r.retailerName, phone: r.phone, outstandingPaise: r.outstandingPaise }))
+    : (owingList.data?.data ?? []).filter((r) => r.outstandingPaise > 0).map((r) => ({ id: r.id, name: r.businessName, phone: r.phone, outstandingPaise: r.outstandingPaise }));
+  const owingLoaded = reportsOn ? !!owingReport.data : !!owingList.data;
   const ledger = useApi<any>(open && retailerId ? `/biz/retailers/${retailerId}/ledger` : null);
   const openOrders: any[] = ledger.data?.data.openOrders ?? [];
   const selected = openOrders.find((o) => o.id === orderId);
-  const max = orderId ? selected?.outstandingPaise ?? 0 : ledger.data?.data.totals.outstandingPaise ?? 0;
-  const who = retailer ?? (() => { const r = owing.data?.data.find((x) => x.retailerId === retailerId); return r ? { id: r.retailerId, name: r.retailerName, phone: r.phone } : null; })();
+  // with on-account payments switched off, nothing can be recorded until a specific order is chosen
+  const max = orderId ? selected?.outstandingPaise ?? 0 : onAccountOn ? ledger.data?.data.totals.outstandingPaise ?? 0 : 0;
+  const who = retailer ?? (() => { const r = owing.find((x) => x.id === retailerId); return r ? { id: r.id, name: r.name, phone: r.phone } : null; })();
 
   const save = useAction((body: any) => api.post("/biz/payments", body), {
     silentError: true,
@@ -56,6 +65,7 @@ export function RecordPaymentDialog({ open, onClose, retailer, order }: { open: 
     setError(null);
     const amountPaise = rupeesToPaise(amount);
     if (!retailerId) return setError("Choose a retailer");
+    if (!onAccountOn && !orderId) return setError("Choose which order this payment is for");
     if (!amountPaise) return setError("Enter the amount received");
     if (amountPaise > max) return setError(`The most you can record here is ${formatINR(max)} (the outstanding balance).`);
     save.mutate({ retailerId, orderId: orderId || null, amountPaise, method, paymentDate: date, reference, notes }, { onError: (err) => setError(err.message) });
@@ -81,17 +91,17 @@ export function RecordPaymentDialog({ open, onClose, retailer, order }: { open: 
         <form onSubmit={submit} noValidate className="grid gap-4 sm:grid-cols-2">
           {error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700 sm:col-span-2">{error}</p>}
           {!retailer && (
-            <Field label="Retailer" required className="sm:col-span-2" hint={owing.data && !owing.data.data.length ? "No retailer has an outstanding balance right now." : "Only retailers with an outstanding balance are listed"}>
+            <Field label="Retailer" required className="sm:col-span-2" hint={owingLoaded && !owing.length ? "No retailer has an outstanding balance right now." : "Only retailers with an outstanding balance are listed"}>
               <Select value={retailerId} onChange={(e) => { setRetailerId(e.target.value); setOrderId(""); }}>
                 <option value="">Select retailer</option>
-                {owing.data?.data.map((r) => <option key={r.retailerId} value={r.retailerId}>{r.retailerName} — owes {formatINR(r.outstandingPaise)}</option>)}
+                {owing.map((r) => <option key={r.id} value={r.id}>{r.name} — owes {formatINR(r.outstandingPaise)}</option>)}
               </Select>
             </Field>
           )}
           {retailerId && (
-            <Field label="Apply to" className="sm:col-span-2" hint={orderId ? undefined : "On account: applied to the oldest unpaid orders first"}>
+            <Field label="Apply to" required={!onAccountOn} className="sm:col-span-2" hint={orderId ? undefined : onAccountOn ? "On account: applied to the oldest unpaid orders first" : "Choose the order this payment is for"}>
               <Select value={orderId} onChange={(e) => setOrderId(e.target.value)} disabled={!!order}>
-                {!order && <option value="">On account (oldest orders first)</option>}
+                {!order && (onAccountOn ? <option value="">On account (oldest orders first)</option> : <option value="" disabled>Choose an order</option>)}
                 {order && !selected && <option value={order.id}>Order #{order.orderNumber}</option>}
                 {openOrders.map((o) => <option key={o.id} value={o.id}>Order #{o.orderNumber} — {formatINR(o.outstandingPaise)} due</option>)}
               </Select>
@@ -109,7 +119,7 @@ export function RecordPaymentDialog({ open, onClose, retailer, order }: { open: 
           <div className="sm:col-span-2">
             <ModalFooter>
               <Button variant="secondary" onClick={onClose}>Cancel</Button>
-              <Button type="submit" loading={save.isPending} disabled={!!retailerId && ledger.isSuccess && max === 0}>Record payment</Button>
+              <Button type="submit" loading={save.isPending} disabled={!!retailerId && ledger.isSuccess && max === 0 && (onAccountOn || !!orderId)}>Record payment</Button>
             </ModalFooter>
           </div>
         </form>
@@ -171,6 +181,7 @@ export function PaymentRows({ rows, showRetailer, onReverse }: { rows: any[]; sh
 }
 
 export default function Payments() {
+  const reportsOn = useFeature("reports");
   const { values: f, page, set } = useUrlFilters({ q: "", method: "", status: "" });
   const q = useApi<any[]>("/biz/payments", { ...f, page });
   const [recording, setRecording] = useState(false);
@@ -181,7 +192,7 @@ export default function Payments() {
     <div>
       <PageHeader title="Payments" description="Money received from retailers. Payments are recorded manually — DealerLink does not collect money." actions={<Button onClick={() => setRecording(true)}><Plus className="h-4 w-4" aria-hidden /> Record payment</Button>} />
       <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <Stat label="Outstanding now" value={summary ? formatINR(summary.outstandingPaise) : "—"} tone={summary?.outstandingPaise > 0 ? "danger" : "success"} icon={<Wallet />} hint={<Link to="/dashboard/reports?tab=outstanding" className="font-medium text-brand-700 hover:underline">See who owes →</Link>} />
+        <Stat label="Outstanding now" value={summary ? formatINR(summary.outstandingPaise) : "—"} tone={summary?.outstandingPaise > 0 ? "danger" : "success"} icon={<Wallet />} hint={reportsOn ? <Link to="/dashboard/reports?tab=outstanding" className="font-medium text-brand-700 hover:underline">See who owes →</Link> : undefined} />
         <Stat label="Received this month" value={summary ? formatINR(summary.receivedThisMonthPaise) : "—"} tone="success" icon={<CheckCircle2 />} />
         <Stat label="Total received" value={summary ? formatINR(summary.totalReceivedPaise) : "—"} icon={<Wallet />} />
       </div>

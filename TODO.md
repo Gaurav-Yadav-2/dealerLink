@@ -88,6 +88,10 @@ Status as of 2026-11-11. "Tested" means covered by the automated suite (`npm tes
 - [x] GST on orders (per-product rate, per-line tax, business toggle)
 - [x] Hindi UI for the retailer portal
 
+### Per-business feature control
+- [x] Admin switches for 10 features per business, enforced by the API (8) or screen-only (WhatsApp, Hindi); audit-logged; wholesaler sees what's off *(tested, incl. one test per feature)*
+- [ ] Plans (e.g. Basic / Pro) that set a group of features at once, once pricing is decided
+
 ### Platform admin
 - [x] Statistics, health, businesses, users, suspend / activate, reset links, audit feed
 

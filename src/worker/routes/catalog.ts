@@ -5,6 +5,7 @@ import { categorySchema, productImportRowSchema, productImportSchema, productPat
 import { ownerCtx, ownerOnly, type BusinessRow } from "../lib/auth";
 import { body, conflict, invalid, like, notFound, now, ok, pageParams, uuid, type AppEnv } from "../lib/http";
 import { auditStmt, isConstraintError, rateLimit, resolveAvailability } from "../lib/util";
+import { requireFeature } from "../lib/features";
 import { imagesBelongTo, internalImageId, MAX_IMAGE_BYTES, MAX_IMAGES_PER_BUSINESS, sniffImageType } from "../lib/images";
 
 export const catalogRoutes = new Hono<AppEnv>();
@@ -134,6 +135,7 @@ catalogRoutes.get("/products", async (c) => {
 /** Full catalogue for CSV export (the browser builds the file). */
 catalogRoutes.get("/products/export", async (c) => {
   const { business } = ownerCtx(c);
+  requireFeature(c, "csv");
   const { results } = await c.env.DB.prepare(`SELECT ${PRODUCT_COLS} ${PRODUCT_FROM} WHERE p.business_id = ? AND p.archived_at IS NULL ORDER BY p.name LIMIT 5000`)
     .bind(business.id).all();
   return ok(c, results);
@@ -236,6 +238,7 @@ catalogRoutes.patch("/products/:id", async (c) => {
  */
 catalogRoutes.post("/images", async (c) => {
   const { business, user } = ownerCtx(c);
+  requireFeature(c, "productPhotos");
   await rateLimit(c, "image-upload", business.id, 120, 3600);
   const declared = Number(c.req.header("content-length") ?? 0);
   if (declared > MAX_IMAGE_BYTES) throw invalid(`Photo is too large (max ${MAX_IMAGE_BYTES / 1000} KB after compression).`);
@@ -344,6 +347,7 @@ function convertRow(raw: Record<string, unknown>): { value: Record<string, unkno
 
 catalogRoutes.post("/products/import", async (c) => {
   const { business, user } = ownerCtx(c);
+  requireFeature(c, "csv");
   const input = await body(c, productImportSchema);
   const db = c.env.DB;
 

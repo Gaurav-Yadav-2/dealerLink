@@ -8,7 +8,7 @@ import { AVAILABILITIES, AVAILABILITY_LABELS, GST_RATES_BP, UNITS } from "@share
 import { AvailabilityBadge } from "@/components/shared";
 import { Badge, Button, Card, ConfirmDialog, EmptyState, ErrorState, Field, Input, ListSkeleton, Modal, ModalFooter, PageHeader, Pagination, SearchInput, Select, Table, Td, Textarea, Th, Toggle } from "@/components/ui";
 import { api, errorMessage } from "@/lib/api";
-import { useAuth } from "@/lib/auth";
+import { useAuth, useFeature } from "@/lib/auth";
 import { downloadCsv, parseCsv, PRODUCT_CSV_HEADERS, toCsv } from "@/lib/csv";
 import { formatGstRate, formatINR, paiseToRupeesString, rupeesToPaise } from "@/lib/format";
 import { useAction, useApi, useUrlFilters } from "@/lib/hooks";
@@ -36,12 +36,14 @@ function ProductPhotoField({ value, onChange, error, productName }: { value: str
   const cameraInput = useRef<HTMLInputElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
-  const [showLink, setShowLink] = useState(() => !!value && !value.startsWith("/api/images/"));
+  const uploadsOn = useFeature("productPhotos");
+  // with photo upload switched off, the image-link box is the way to add a photo, so show it straight away
+  const [showLink, setShowLink] = useState(() => (!!value && !value.startsWith("/api/images/")) || !uploadsOn);
   const [dragging, setDragging] = useState(false);
   const hasCamera = typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches;
 
   const upload = async (file: File | undefined) => {
-    if (!file) return;
+    if (!file || !uploadsOn) return;
     setBusy(true);
     try {
       const photo = await prepareProductPhoto(file);
@@ -86,21 +88,23 @@ function ProductPhotoField({ value, onChange, error, productName }: { value: str
         </div>
         <div className="min-w-0 flex-1 space-y-2">
           <div className="flex flex-wrap gap-2">
-            {hasCamera && (
+            {uploadsOn && hasCamera && (
               <Button variant="secondary" size="sm" disabled={busy} onClick={() => cameraInput.current?.click()}>
                 <Camera className="h-4 w-4" aria-hidden /> Take photo
               </Button>
             )}
-            <Button variant="secondary" size="sm" disabled={busy} onClick={() => fileInput.current?.click()}>
-              <ImagePlus className="h-4 w-4" aria-hidden /> {hasCamera ? "Choose from gallery" : "Upload photo"}
-            </Button>
+            {uploadsOn && (
+              <Button variant="secondary" size="sm" disabled={busy} onClick={() => fileInput.current?.click()}>
+                <ImagePlus className="h-4 w-4" aria-hidden /> {hasCamera ? "Choose from gallery" : "Upload photo"}
+              </Button>
+            )}
             {value && (
               <Button variant="ghost" size="sm" disabled={busy} onClick={() => onChange("")}>
                 <Trash2 className="h-4 w-4 text-red-600" aria-hidden /> Remove
               </Button>
             )}
           </div>
-          <p className="text-xs text-slate-500">{hasCamera ? "Use your camera or a photo from your gallery." : "Click to choose a photo, or drag one here."} JPG, PNG or WebP — it is resized automatically.</p>
+          {uploadsOn && <p className="text-xs text-slate-500">{hasCamera ? "Use your camera or a photo from your gallery." : "Click to choose a photo, or drag one here."} JPG, PNG or WebP — it is resized automatically.</p>}
           {showLink ? (
             <Input type="url" inputMode="url" aria-label="Image link" value={value.startsWith("/api/images/") ? "" : value} onChange={(e) => onChange(e.target.value)} placeholder="https://… (link to a photo)" />
           ) : (
@@ -287,6 +291,7 @@ function ImportDialog({ onClose }: { onClose: () => void }) {
 
 export default function Products() {
   const { session } = useAuth();
+  const csvOn = useFeature("csv");
   const [sp, setSp] = useSearchParams();
   const { values: f, page, set } = useUrlFilters({ q: "", categoryId: "", status: "current", sort: "name" });
   const q = useApi<any[]>("/biz/products", { ...f, page });
@@ -339,8 +344,8 @@ export default function Products() {
         description="Your wholesale catalogue. Prices here are the standard prices; set special prices per retailer from the retailer’s page."
         actions={
           <>
-            <Button variant="secondary" onClick={exportCsv} loading={exporting}><Download className="h-4 w-4" aria-hidden /> Export</Button>
-            <Button variant="secondary" onClick={() => setImporting(true)}><Upload className="h-4 w-4" aria-hidden /> Import CSV</Button>
+            {csvOn && <Button variant="secondary" onClick={exportCsv} loading={exporting}><Download className="h-4 w-4" aria-hidden /> Export</Button>}
+            {csvOn && <Button variant="secondary" onClick={() => setImporting(true)}><Upload className="h-4 w-4" aria-hidden /> Import CSV</Button>}
             <Button onClick={() => setEditing("new")}><Plus className="h-4 w-4" aria-hidden /> Add product</Button>
           </>
         }
@@ -376,7 +381,7 @@ export default function Products() {
           filtered ? (
             <EmptyState icon={<Package />} title="No products match" description="Try a different search or clear the filters." action={<Button variant="secondary" size="sm" onClick={() => set({ q: "", categoryId: "", status: "current" })}>Clear filters</Button>} />
           ) : (
-            <EmptyState icon={<Package />} title="Add your first product" description="Add products one at a time, or upload your existing price list as a CSV file." action={<div className="flex gap-2"><Button variant="secondary" onClick={() => setImporting(true)}>Import CSV</Button><Button onClick={() => setEditing("new")}>Add product</Button></div>} />
+            <EmptyState icon={<Package />} title="Add your first product" description="Add products one at a time, or upload your existing price list as a CSV file." action={<div className="flex gap-2">{csvOn && <Button variant="secondary" onClick={() => setImporting(true)}>Import CSV</Button>}<Button onClick={() => setEditing("new")}>Add product</Button></div>} />
           )
         ) : (
           <Table>

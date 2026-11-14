@@ -4,7 +4,8 @@ import { ORDER_STATUS_LABELS, type OrderStatus } from "@shared/constants";
 import { BarList, BarSeries } from "@/components/charts";
 import { WhatsAppLink } from "@/components/shared";
 import { Button, Card, CardHeader, EmptyState, ErrorState, Input, ListSkeleton, PageHeader, Select, Stat, Table, Tabs, Td, Th } from "@/components/ui";
-import { useAuth } from "@/lib/auth";
+import { useAuth, useFeature } from "@/lib/auth";
+import { FeatureOff } from "@/components/FeatureOff";
 import { downloadCsv, toCsv, type CsvColumn } from "@/lib/csv";
 import { compactINR, daysAgoIST, formatDate, formatDayShort, formatINR, formatMonth, paiseToRupeesString, todayIST } from "@/lib/format";
 import { useApi } from "@/lib/hooks";
@@ -25,7 +26,12 @@ const PRESETS: [string, () => { from: string; to: string }][] = [
 const rupees = (p: number) => paiseToRupeesString(p);
 
 export default function Reports() {
+  return useFeature("reports") ? <ReportsPage /> : <FeatureOff title="Reports" />;
+}
+
+function ReportsPage() {
   const { session } = useAuth();
+  const csvOn = useFeature("csv");
   const [sp, setSp] = useSearchParams();
   const tab = (sp.get("tab") as Tab) || "orders";
   const from = sp.get("from") || daysAgoIST(29);
@@ -54,7 +60,7 @@ export default function Reports() {
   const s = summary.data?.data;
   return (
     <div>
-      <PageHeader title="Reports" description="Every figure is calculated from your actual orders and payments. Dates use India time." actions={<Button variant="secondary" onClick={exportCsv} disabled={!rows.length}><Download className="h-4 w-4" aria-hidden /> Export CSV</Button>} />
+      <PageHeader title="Reports" description="Every figure is calculated from your actual orders and payments. Dates use India time." actions={csvOn ? <Button variant="secondary" onClick={exportCsv} disabled={!rows.length}><Download className="h-4 w-4" aria-hidden /> Export CSV</Button> : undefined} />
 
       <Card className="mb-4 p-3 sm:p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">

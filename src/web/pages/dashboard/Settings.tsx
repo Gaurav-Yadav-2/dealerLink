@@ -6,9 +6,10 @@ import { INDIAN_STATES } from "@shared/constants";
 import { ChangePasswordCard, copyText } from "@/components/shared";
 import { PushAlertsCard, PUSH_TEXT_EN_OWNER } from "@/components/PushAlerts";
 import { InstallAppCard, INSTALL_TEXT_EN } from "@/components/InstallApp";
-import { Button, Card, CardHeader, EmptyState, Field, Input, PageHeader, Select, Textarea, Toggle } from "@/components/ui";
+import { Badge, Button, Card, CardHeader, EmptyState, Field, Input, PageHeader, Select, Textarea, Toggle } from "@/components/ui";
 import { api, errorMessage } from "@/lib/api";
-import { useAuth } from "@/lib/auth";
+import { useAuth, useFeature } from "@/lib/auth";
+import { FEATURES } from "@shared/features";
 import { formatDateTime, titleCase } from "@/lib/format";
 import { useAction, useApi } from "@/lib/hooks";
 import { applyServerErrors } from "../public/Public";
@@ -16,6 +17,8 @@ import { applyServerErrors } from "../public/Public";
 export default function Settings() {
   const { session, refresh } = useAuth();
   const biz = session!.business!;
+  const gstOn = useFeature("gst");
+  const offFeatures = FEATURES.filter((f) => session?.features?.[f.key] === false);
   const { register, handleSubmit, reset, watch, setValue, setError, formState } = useForm<any>();
   const errors = formState.errors as Record<string, { message?: string }>;
   useEffect(() => {
@@ -70,17 +73,19 @@ export default function Settings() {
           </div>
         </Card>
 
-        <Card>
-          <CardHeader title="GST" />
-          <div className="p-4 sm:p-5">
-            <Toggle
-              checked={!!watch("gstEnabled")}
-              onChange={(v) => setValue("gstEnabled", v, { shouldDirty: true })}
-              label="Add GST to orders"
-              description="When on, each product’s GST rate is added on top of its price at checkout and shown on orders and PDFs. Product prices are treated as exclusive of GST. Order PDFs are order summaries, not statutory tax invoices."
-            />
-          </div>
-        </Card>
+        {gstOn && (
+          <Card>
+            <CardHeader title="GST" />
+            <div className="p-4 sm:p-5">
+              <Toggle
+                checked={!!watch("gstEnabled")}
+                onChange={(v) => setValue("gstEnabled", v, { shouldDirty: true })}
+                label="Add GST to orders"
+                description="When on, each product’s GST rate is added on top of its price at checkout and shown on orders and PDFs. Product prices are treated as exclusive of GST. Order PDFs are order summaries, not statutory tax invoices."
+              />
+            </div>
+          </Card>
+        )}
 
         <div className="sticky bottom-3 z-10 flex justify-end">
           <Button type="submit" size="lg" loading={save.isPending} disabled={!formState.isDirty} className="shadow-pop">Save settings</Button>
@@ -95,6 +100,17 @@ export default function Settings() {
           <a href={storeUrl} target="_blank" rel="noreferrer" className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-line bg-white px-4 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"><ExternalLink className="h-4 w-4" aria-hidden /> Open</a>
         </div>
       </Card>
+
+      {offFeatures.length > 0 && (
+        <Card>
+          <CardHeader title="Features not enabled for your account" description="Contact DealerLink support if you'd like any of these switched on." />
+          <ul className="flex flex-wrap gap-2 p-4 sm:p-5">
+            {offFeatures.map((f) => (
+              <li key={f.key}><Badge>{f.label}</Badge></li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
       <InstallAppCard text={INSTALL_TEXT_EN} />
 

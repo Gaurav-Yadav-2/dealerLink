@@ -4,6 +4,16 @@ import { adminCtx, adminOnly, requireAuth } from "../lib/auth";
 import { body, conflict, forbidden, istDate, istDateSql, like, notFound, now, ok, pageParams, type AppEnv } from "../lib/http";
 import { auditStmt, rateLimit } from "../lib/util";
 import { issueResetToken } from "./auth";
+import { z } from "zod";
+import { FEATURE_KEYS, type FeatureKey } from "../../shared/features";
+import { loadFeatures } from "../lib/features";
+
+const featureUpdateSchema = z.object({
+  features: z
+    .record(z.string(), z.boolean())
+    .refine((f) => Object.keys(f).length > 0, "Choose at least one feature")
+    .refine((f) => Object.keys(f).every((k) => (FEATURE_KEYS as string[]).includes(k)), "Unknown feature"),
+});
 
 /** Platform administration. Kept entirely separate from the tenant (/api/biz) API. */
 export const adminRoutes = new Hono<AppEnv>();
@@ -64,11 +74,45 @@ adminRoutes.get("/businesses", async (c) => {
               (SELECT COUNT(*) FROM retailer_profiles r WHERE r.business_id = b.id) AS retailer_count,
               (SELECT COUNT(*) FROM products p WHERE p.business_id = b.id AND p.archived_at IS NULL) AS product_count,
               (SELECT COUNT(*) FROM orders o WHERE o.business_id = b.id) AS order_count,
+              (SELECT COUNT(*) FROM business_features f WHERE f.business_id = b.id AND f.enabled = 0) AS features_off,
               (SELECT MAX(o.created_at) FROM orders o WHERE o.business_id = b.id) AS last_order_at
        ${from} WHERE ${w} ORDER BY b.created_at DESC LIMIT ? OFFSET ?`,
     ).bind(...params, pageSize, offset),
   ]);
   return ok(c, rows.results, { page, pageSize, total: (count.results[0] as any).n });
+});
+
+/** A business's feature switches (every feature, on or off). */
+adminRoutes.get("/businesses/:id/features", async (c) => {
+  const db = c.env.DB;
+  const biz = await db.prepare("SELECT id, name FROM businesses WHERE id = ?").bind(c.req.param("id")).first<{ id: string; name: string }>();
+  if (!biz) throw notFound("Business");
+  return ok(c, { businessId: biz.id, name: biz.name, features: await loadFeatures(db, biz.id) });
+});
+
+/** Turns features on or off for one business. Body: { features: { productPhotos: false, ... } } (only the ones to change). */
+adminRoutes.put("/businesses/:id/features", async (c) => {
+  const admin = adminCtx(c);
+  const input = await body(c, featureUpdateSchema);
+  const db = c.env.DB;
+  const id = c.req.param("id");
+  const biz = await db.prepare("SELECT id FROM businesses WHERE id = ?").bind(id).first();
+  if (!biz) throw notFound("Business");
+  const before = await loadFeatures(db, id);
+  const ts = now();
+  const changes = Object.entries(input.features).filter(([k, v]) => before[k as FeatureKey] !== v) as [FeatureKey, boolean][];
+  if (changes.length) {
+    await db.batch(
+      changes.flatMap(([feature, enabled]) => [
+        db.prepare(
+          `INSERT INTO business_features (business_id, feature, enabled, updated_by, updated_at) VALUES (?,?,?,?,?)
+           ON CONFLICT(business_id, feature) DO UPDATE SET enabled = excluded.enabled, updated_by = excluded.updated_by, updated_at = excluded.updated_at`,
+        ).bind(id, feature, enabled ? 1 : 0, admin.user.id, ts),
+        auditStmt(db, { businessId: id, actorId: admin.user.id, action: `admin.feature_${enabled ? "enabled" : "disabled"}`, entityType: "business", entityId: id, metadata: { feature } }),
+      ]),
+    );
+  }
+  return ok(c, { businessId: id, features: await loadFeatures(db, id), changed: changes.map(([k]) => k) });
 });
 
 adminRoutes.post("/businesses/:id/status", async (c) => {

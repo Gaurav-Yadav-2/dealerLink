@@ -1,5 +1,7 @@
-import { Activity, Building2, CheckCircle2, ClipboardList, KeyRound, Package, ShieldAlert, Users } from "lucide-react";
+import { Activity, Building2, CheckCircle2, ClipboardList, KeyRound, Package, ShieldAlert, SlidersHorizontal, Users } from "lucide-react";
 import { useState } from "react";
+import { FEATURES, type FeatureKey } from "@shared/features";
+import { Toggle } from "@/components/ui";
 import { ShareLinkDialog } from "@/components/shared";
 import { BarSeries } from "@/components/charts";
 import { Badge, Button, Card, CardHeader, EmptyState, ErrorState, Field, Input, ListSkeleton, Modal, ModalFooter, PageHeader, Pagination, SearchInput, Select, Skeleton, Stat, Table, Td, Th } from "@/components/ui";
@@ -94,14 +96,59 @@ export function AdminOverview() {
   );
 }
 
+/**
+ * Feature switches for one business. Each switch saves immediately and takes effect on the business's next request.
+ * Switching a feature off hides it and (for "server" features) makes the API refuse it; no data is deleted.
+ */
+function FeaturesDialog({ business, onClose }: { business: any | null; onClose: () => void }) {
+  const q = useApi<{ features: Record<FeatureKey, boolean> }>(business ? `/admin/businesses/${business.id}/features` : null);
+  const [saving, setSaving] = useState<FeatureKey | null>(null);
+  const save = useAction((v: { key: FeatureKey; on: boolean }) => api.put(`/admin/businesses/${business.id}/features`, { features: { [v.key]: v.on } }), {
+    success: (_d, v) => `${FEATURES.find((f) => f.key === v.key)?.label} ${v.on ? "switched on" : "switched off"} for ${business?.name}`,
+  });
+  const features = q.data?.data.features;
+  const offCount = features ? Object.values(features).filter((v) => !v).length : 0;
+  return (
+    <Modal open={!!business} onOpenChange={(o) => !o && onClose()} title={`Features — ${business?.name ?? ""}`} description="Changes apply immediately. Switching a feature off never deletes data; switching it back on restores it." size="md">
+      {q.isLoading || !features ? (
+        <ListSkeleton rows={5} />
+      ) : (
+        <div>
+          <p className="mb-3 text-[13px] text-slate-500">{offCount === 0 ? "Everything is switched on." : `${offCount} of ${FEATURES.length} features switched off.`}</p>
+          <ul className="divide-y divide-line">
+            {FEATURES.map((f) => (
+              <li key={f.key} className="py-3">
+                <Toggle
+                  checked={features[f.key]}
+                  disabled={save.isPending && saving === f.key}
+                  onChange={(on) => {
+                    setSaving(f.key);
+                    save.mutate({ key: f.key, on }, { onSettled: () => setSaving(null) });
+                  }}
+                  label={f.label}
+                  description={`${f.description}${f.enforced === "screen" ? " (Hides the buttons; there is nothing for the server to block.)" : ""}`}
+                />
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      <ModalFooter>
+        <Button variant="secondary" onClick={onClose}>Done</Button>
+      </ModalFooter>
+    </Modal>
+  );
+}
+
 export function AdminBusinesses() {
   const { values: f, page, set } = useUrlFilters({ q: "", status: "" });
   const q = useApi<any[]>("/admin/businesses", { ...f, page });
   const [target, setTarget] = useState<any | null>(null);
+  const [featuresFor, setFeaturesFor] = useState<any | null>(null);
   const rows = q.data?.data ?? [];
   return (
     <div>
-      <PageHeader title="Businesses" description="Every wholesaler registered on the platform." />
+      <PageHeader title="Businesses" description="Every wholesaler registered on the platform. Use Features to switch parts of DealerLink on or off for a business." />
       <Card>
         <div className="grid gap-2 border-b border-line p-3 sm:grid-cols-[1fr_auto] sm:p-4">
           <SearchInput value={f.q} onChange={(v) => set({ q: v })} placeholder="Search business, owner name or email" />
@@ -117,8 +164,17 @@ export function AdminBusinesses() {
                   <Td><span className="block text-slate-700">{b.ownerName}</span><span className="text-xs text-slate-500">{b.ownerEmail}</span></Td>
                   <Td className="text-right tabular">{b.retailerCount}</Td><Td className="text-right tabular">{b.productCount}</Td><Td className="text-right tabular">{b.orderCount}</Td>
                   <Td className="text-slate-600">{b.lastOrderAt ? timeAgo(b.lastOrderAt) : "—"}</Td>
-                  <Td><StatusBadge status={b.status} />{b.suspensionReason && <span className="mt-0.5 block max-w-[12rem] truncate text-xs text-slate-500" title={b.suspensionReason}>{b.suspensionReason}</span>}</Td>
-                  <Td className="text-right"><Button size="sm" variant={b.status === "active" ? "dangerOutline" : "secondary"} onClick={() => setTarget(b)}>{b.status === "active" ? "Suspend" : "Reactivate"}</Button></Td>
+                  <Td>
+                    <StatusBadge status={b.status} />
+                    {b.featuresOff > 0 && <Badge tone="warning" className="ml-1">{b.featuresOff} feature{b.featuresOff === 1 ? "" : "s"} off</Badge>}
+                    {b.suspensionReason && <span className="mt-0.5 block max-w-[12rem] truncate text-xs text-slate-500" title={b.suspensionReason}>{b.suspensionReason}</span>}
+                  </Td>
+                  <Td className="text-right">
+                    <div className="flex justify-end gap-1.5">
+                      <Button size="sm" variant="secondary" onClick={() => setFeaturesFor(b)}><SlidersHorizontal className="h-3.5 w-3.5" aria-hidden /> Features</Button>
+                      <Button size="sm" variant={b.status === "active" ? "dangerOutline" : "secondary"} onClick={() => setTarget(b)}>{b.status === "active" ? "Suspend" : "Reactivate"}</Button>
+                    </div>
+                  </Td>
                 </tr>
               ))}
             </tbody>
@@ -127,6 +183,7 @@ export function AdminBusinesses() {
         <Pagination meta={q.data?.meta} onPage={(p) => set({ page: p } as any)} />
       </Card>
       <StatusDialog target={target} kind="businesses" onClose={() => setTarget(null)} />
+      <FeaturesDialog business={featuresFor} onClose={() => setFeaturesFor(null)} />
     </div>
   );
 }

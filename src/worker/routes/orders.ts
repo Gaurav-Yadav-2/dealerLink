@@ -6,6 +6,7 @@ import { body, conflict, invalid, istDateSql, like, notFound, now, ok, pageParam
 import { changeOrderStatus, createOrder, orderDetail } from "../lib/orders";
 import { auditStmt, isConstraintError } from "../lib/util";
 import { getRetailer } from "./retailers";
+import { featureOn, requireFeature } from "../lib/features";
 
 export const orderRoutes = new Hono<AppEnv>();
 orderRoutes.use("*", ownerOnly);
@@ -65,12 +66,14 @@ orderRoutes.get("/orders", async (c) => {
 /** Wholesaler creates an order on a retailer's behalf (e.g. taken over the phone). Prices still come from the resolver. */
 orderRoutes.post("/orders", async (c) => {
   const { business, user } = ownerCtx(c);
+  requireFeature(c, "manualOrders");
   const input = await body(c, manualOrderSchema);
   const retailer = await getRetailer(c.env.DB, business.id, input.retailerId);
   if (retailer.status !== "active") throw conflict("This retailer is inactive. Activate them before creating an order.");
   const order = await createOrder(c.env.DB, {
     business, retailerId: retailer.id, retailerName: retailer.business_name, retailerUserId: retailer.user_id,
     lines: input.items, note: input.note, actor: user, source: "owner", discountPaise: input.discountPaise, deliveryPaise: input.deliveryPaise,
+    useSpecialPrices: featureOn(c, "retailerPricing"),
   });
   return ok(c, order, undefined, 201);
 });

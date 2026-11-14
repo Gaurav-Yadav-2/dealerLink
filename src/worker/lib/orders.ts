@@ -14,8 +14,10 @@ export type PricedProduct = {
 /**
  * THE price resolver. A retailer's price is their override if one exists, otherwise the standard price.
  * Always scoped by business_id, so ids from another tenant simply resolve to nothing.
+ * `useSpecialPrices` is false when the admin has switched retailer-specific pricing off for the business:
+ * overrides are then ignored (but kept, so they come back if the feature is switched on again).
  */
-export async function pricedProducts(db: D1Database, businessId: string, retailerId: string, productIds: string[]): Promise<Map<string, PricedProduct>> {
+export async function pricedProducts(db: D1Database, businessId: string, retailerId: string, productIds: string[], useSpecialPrices: boolean): Promise<Map<string, PricedProduct>> {
   const out = new Map<string, PricedProduct>();
   for (let i = 0; i < productIds.length; i += 80) {
     const chunk = productIds.slice(i, i + 80);
@@ -24,10 +26,10 @@ export async function pricedProducts(db: D1Database, businessId: string, retaile
         `SELECT p.id, p.name, p.sku, p.unit, p.price_paise, COALESCE(rp.price_paise, p.price_paise) AS effective_price_paise,
                 p.gst_rate_bp, p.min_order_qty, p.stock_qty, p.availability, p.is_active, p.archived_at
          FROM products p
-         LEFT JOIN retailer_product_prices rp ON rp.product_id = p.id AND rp.retailer_id = ? AND rp.business_id = p.business_id
+         LEFT JOIN retailer_product_prices rp ON rp.product_id = p.id AND rp.retailer_id = ? AND rp.business_id = p.business_id AND 1 = ?
          WHERE p.business_id = ? AND p.id IN (${chunk.map(() => "?").join(",")})`,
       )
-      .bind(retailerId, businessId, ...chunk)
+      .bind(retailerId, useSpecialPrices ? 1 : 0, businessId, ...chunk)
       .all<PricedProduct>();
     for (const r of results) out.set(r.id, r);
   }
@@ -75,7 +77,7 @@ export async function createOrder(
   args: {
     business: BusinessRow; retailerId: string; retailerName: string; retailerUserId: string | null;
     lines: { productId: string; quantity: number }[]; note?: string | null; actor: AuthUser; source: "retailer" | "owner";
-    discountPaise?: number; deliveryPaise?: number; clearCartId?: string;
+    discountPaise?: number; deliveryPaise?: number; clearCartId?: string; useSpecialPrices: boolean;
   },
 ) {
   const { business, actor } = args;
@@ -86,7 +88,7 @@ export async function createOrder(
   if (!lines.length) throw invalid("Your cart is empty");
   if (lines.length > MAX_ORDER_LINES) throw invalid(`An order can contain at most ${MAX_ORDER_LINES} different products`);
 
-  const products = await pricedProducts(db, business.id, args.retailerId, lines.map((l) => l.productId));
+  const products = await pricedProducts(db, business.id, args.retailerId, lines.map((l) => l.productId), args.useSpecialPrices);
   const { priced, issues, subtotal, tax } = priceLines(business, products, lines);
   if (issues.length) throw new AppError(422, "ORDER_INVALID", issues[0].message, issues);
 

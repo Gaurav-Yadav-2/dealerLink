@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { BackLink, OrderStatusBadge, PaymentStatusBadge, ShareLinkDialog, WhatsAppLink } from "@/components/shared";
 import { Badge, Button, buttonClass, Card, CardHeader, ConfirmDialog, DefinitionList, EmptyState, ErrorState, Field, Input, ListSkeleton, Modal, ModalFooter, PageHeader, Pagination, SearchInput, Select, Skeleton, Stat, Table, Tabs, Td, Th } from "@/components/ui";
 import { api, errorMessage } from "@/lib/api";
-import { useAuth } from "@/lib/auth";
+import { useAuth, useFeature } from "@/lib/auth";
 import { formatDate, formatDateTime, formatINR, paiseToRupeesString, rupeesToPaise } from "@/lib/format";
 import { useAction, useApi } from "@/lib/hooks";
 import { messages } from "@/lib/whatsapp";
@@ -145,12 +145,13 @@ function PriceList({ retailerId }: { retailerId: string }) {
 }
 
 function RetailerOrders({ retailerId }: { retailerId: string }) {
+  const manualOn = useFeature("manualOrders");
   const [page, setPage] = useState(1);
   const q = useApi<any[]>("/biz/orders", { retailerId, page });
   const rows = q.data?.data ?? [];
   return (
     <Card>
-      <CardHeader title="Order history" action={<Link to={`/dashboard/orders/new?retailerId=${retailerId}`} className={buttonClass("secondary", "sm")}><Plus className="h-3.5 w-3.5" aria-hidden /> Create order</Link>} />
+      <CardHeader title="Order history" action={manualOn ? <Link to={`/dashboard/orders/new?retailerId=${retailerId}`} className={buttonClass("secondary", "sm")}><Plus className="h-3.5 w-3.5" aria-hidden /> Create order</Link> : undefined} />
       {q.isLoading ? <ListSkeleton /> : q.isError ? <ErrorState error={q.error} onRetry={() => q.refetch()} /> : rows.length === 0 ? (
         <EmptyState icon={<ClipboardList />} title="No orders yet" description="Orders placed by this retailer will appear here." />
       ) : (
@@ -176,6 +177,7 @@ function RetailerOrders({ retailerId }: { retailerId: string }) {
 
 export default function RetailerDetail() {
   const { id = "" } = useParams();
+  const pricingOn = useFeature("retailerPricing");
   const { session } = useAuth();
   const [sp, setSp] = useSearchParams();
   const tab = (sp.get("tab") as Tab) || "overview";
@@ -230,7 +232,7 @@ export default function RetailerDetail() {
         className="mb-4"
         value={tab}
         onChange={setTab}
-        options={[{ value: "overview", label: "Details" }, { value: "orders", label: "Orders", count: t.orderCount }, { value: "payments", label: "Payments & ledger" }, { value: "prices", label: "Price list", count: r.priceOverrideCount || undefined }]}
+        options={[{ value: "overview", label: "Details" }, { value: "orders", label: "Orders", count: t.orderCount }, { value: "payments", label: "Payments & ledger" }, ...(pricingOn ? [{ value: "prices" as Tab, label: "Price list", count: r.priceOverrideCount || undefined }] : [])]}
       />
 
       {tab === "overview" && (
@@ -328,7 +330,7 @@ export default function RetailerDetail() {
         )
       )}
 
-      {tab === "prices" && <PriceList retailerId={id} />}
+      {tab === "prices" && pricingOn && <PriceList retailerId={id} />}
 
       <RetailerFormDialog open={editing} onClose={() => setEditing(false)} retailer={r} />
       <RecordPaymentDialog open={paying} onClose={() => setPaying(false)} retailer={{ id: r.id, name: r.businessName, phone: r.phone }} />

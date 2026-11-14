@@ -5,6 +5,7 @@ import { RETAILER_COLS, retailerCtx, retailerOnly, type BusinessRow, type Retail
 import { body, invalid, like, notFound, now, ok, pageParams, uuid, type AppEnv } from "../lib/http";
 import { changeOrderStatus, createOrder, orderDetail, pricedProducts, priceLines, retailerLedger } from "../lib/orders";
 import { rateLimit, resolveAvailability } from "../lib/util";
+import { featureOn } from "../lib/features";
 
 /**
  * Retailer-facing API. Every query is scoped by BOTH the retailer's business_id and their own retailer id,
@@ -18,7 +19,7 @@ const PORTAL_PRODUCT = `p.id, p.name, p.sku, p.description, p.unit, p.mrp_paise,
   p.image_url, p.category_id, c.name AS category_name, COALESCE(rp.price_paise, p.price_paise) AS price_paise`;
 const PORTAL_FROM = `FROM products p
   LEFT JOIN categories c ON c.id = p.category_id AND c.deleted_at IS NULL
-  LEFT JOIN retailer_product_prices rp ON rp.product_id = p.id AND rp.retailer_id = ? AND rp.business_id = p.business_id`;
+  LEFT JOIN retailer_product_prices rp ON rp.product_id = p.id AND rp.retailer_id = ? AND rp.business_id = p.business_id AND 1 = ?`;
 
 function present(p: any, biz: BusinessRow) {
   const tracked = !!biz.track_inventory && p.stock_qty != null;
@@ -49,7 +50,7 @@ async function cartView(db: D1Database, auth: RetailerCtx) {
     .bind(cartId, auth.business.id)
     .all<any>();
   const lines = rows.map((r) => ({ productId: r.product_id, quantity: r.quantity }));
-  const products = await pricedProducts(db, auth.business.id, auth.retailer.id, lines.map((l) => l.productId));
+  const products = await pricedProducts(db, auth.business.id, auth.retailer.id, lines.map((l) => l.productId), auth.features?.retailerPricing !== false);
   const { priced, issues, subtotal, tax } = priceLines(auth.business, products, lines);
   const pricedById = new Map(priced.map((l) => [l.product.id, l]));
   const issueById = new Map(issues.map((i) => [i.productId, i.message]));
@@ -114,7 +115,7 @@ portalRoutes.get("/products", async (c) => {
   const db = c.env.DB;
   const [count, rows] = await db.batch([
     db.prepare(`SELECT COUNT(*) AS n FROM products p WHERE ${w}`).bind(...params),
-    db.prepare(`SELECT ${PORTAL_PRODUCT} ${PORTAL_FROM} WHERE ${w} ORDER BY p.name COLLATE NOCASE LIMIT ? OFFSET ?`).bind(retailer.id, ...params, pageSize, offset),
+    db.prepare(`SELECT ${PORTAL_PRODUCT} ${PORTAL_FROM} WHERE ${w} ORDER BY p.name COLLATE NOCASE LIMIT ? OFFSET ?`).bind(retailer.id, featureOn(c, "retailerPricing") ? 1 : 0, ...params, pageSize, offset),
   ]);
   return ok(c, (rows.results as any[]).map((p) => present(p, business)), { page, pageSize, total: (count.results[0] as any).n });
 });
@@ -122,7 +123,7 @@ portalRoutes.get("/products", async (c) => {
 portalRoutes.get("/products/:id", async (c) => {
   const { business, retailer } = retailerCtx(c);
   const p = await c.env.DB.prepare(`SELECT ${PORTAL_PRODUCT} ${PORTAL_FROM} WHERE p.id = ? AND p.business_id = ? AND p.archived_at IS NULL AND p.is_active = 1`)
-    .bind(retailer.id, c.req.param("id"), business.id).first();
+    .bind(retailer.id, featureOn(c, "retailerPricing") ? 1 : 0, c.req.param("id"), business.id).first();
   if (!p) throw notFound("Product");
   return ok(c, present(p, business));
 });
@@ -140,7 +141,7 @@ portalRoutes.put("/cart/items", async (c) => {
     await db.prepare("DELETE FROM cart_items WHERE cart_id = ? AND product_id = ?").bind(cartId, input.productId).run();
     return ok(c, await cartView(db, auth));
   }
-  const products = await pricedProducts(db, auth.business.id, auth.retailer.id, [input.productId]);
+  const products = await pricedProducts(db, auth.business.id, auth.retailer.id, [input.productId], auth.features?.retailerPricing !== false);
   if (!products.has(input.productId)) throw notFound("Product");
   const { issues } = priceLines(auth.business, products, [input]);
   if (issues.length) throw invalid(issues[0].message, issues);
@@ -174,7 +175,7 @@ portalRoutes.post("/orders", async (c) => {
   const { results } = await db.prepare("SELECT product_id, quantity FROM cart_items WHERE cart_id = ?").bind(cartId).all<{ product_id: string; quantity: number }>();
   const order = await createOrder(db, {
     business: auth.business, retailerId: auth.retailer.id, retailerName: auth.retailer.business_name, retailerUserId: auth.user.id,
-    lines: results.map((r) => ({ productId: r.product_id, quantity: r.quantity })), note: input.note, actor: auth.user, source: "retailer", clearCartId: cartId,
+    lines: results.map((r) => ({ productId: r.product_id, quantity: r.quantity })), note: input.note, actor: auth.user, source: "retailer", clearCartId: cartId, useSpecialPrices: auth.features?.retailerPricing !== false,
   });
   return ok(c, order, undefined, 201);
 });
@@ -221,7 +222,7 @@ portalRoutes.post("/orders/:id/reorder", async (c) => {
   if (!order) throw notFound("Order");
   const { results: items } = await db.prepare("SELECT product_id, product_name, quantity FROM order_items WHERE order_id = ?").bind(c.req.param("id")).all<{ product_id: string; product_name: string; quantity: number }>();
   const lines = items.map((i) => ({ productId: i.product_id, quantity: i.quantity }));
-  const products = await pricedProducts(db, auth.business.id, auth.retailer.id, lines.map((l) => l.productId));
+  const products = await pricedProducts(db, auth.business.id, auth.retailer.id, lines.map((l) => l.productId), auth.features?.retailerPricing !== false);
   const { priced, issues } = priceLines(auth.business, products, lines);
   const cartId = await ensureCart(db, auth);
   const ts = now();

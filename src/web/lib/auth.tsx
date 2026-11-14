@@ -3,6 +3,7 @@ import { createContext, useContext, type ReactNode } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { api, clearSession } from "./api";
 import { FullPageSpinner } from "@/components/ui";
+import type { FeatureKey, FeatureSet } from "@shared/features";
 
 export type Role = "owner" | "retailer" | "admin";
 export type Session = {
@@ -13,6 +14,8 @@ export type Session = {
     gstEnabled: number; orderPrefix: string;
   };
   retailer: null | { id: string; businessName: string; contactPerson: string; phone: string; status: string };
+  /** Feature switches for the signed-in user's business (null for the platform admin). */
+  features: FeatureSet | null;
 };
 
 type AuthValue = {
@@ -27,6 +30,12 @@ type AuthValue = {
 const AuthContext = createContext<AuthValue | null>(null);
 
 export const homeFor = (role: Role) => (role === "owner" ? "/dashboard" : role === "retailer" ? "/retailer/dashboard" : "/admin");
+
+/** Whether a feature is switched on for the signed-in user's business. On unless the admin switched it off. */
+export function useFeature(key: FeatureKey): boolean {
+  const ctx = useContext(AuthContext);
+  return ctx?.session?.features?.[key] !== false;
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const qc = useQueryClient();

@@ -311,7 +311,7 @@ export type TKey = keyof typeof en;
 const dictionaries = { en, hi };
 const STORAGE_KEY = "dl_lang";
 
-type I18n = { lang: Lang; setLang: (l: Lang) => void; t: (key: TKey, vars?: Record<string, string | number>) => string };
+type I18n = { lang: Lang; setLang: (l: Lang) => void; t: (key: TKey, vars?: Record<string, string | number>) => string; hindiAvailable: boolean };
 const I18nContext = createContext<I18n | null>(null);
 
 function initialLang(): Lang {
@@ -324,8 +324,10 @@ function initialLang(): Lang {
   return "en";
 }
 
-export function I18nProvider({ children }: { children: ReactNode }) {
-  const [lang, setLangState] = useState<Lang>(initialLang);
+/** `allowHindi` false (switched off by the admin) shows English; the user's saved choice is kept for later. */
+export function I18nProvider({ children, allowHindi = true }: { children: ReactNode; allowHindi?: boolean }) {
+  const [chosen, setLangState] = useState<Lang>(initialLang);
+  const lang: Lang = allowHindi ? chosen : "en";
   useEffect(() => {
     document.documentElement.lang = lang;
     return () => {
@@ -345,7 +347,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     if (vars) for (const [k, v] of Object.entries(vars)) s = s.split(`{${k}}`).join(String(v)); // every occurrence
     return s;
   };
-  return <I18nContext.Provider value={{ lang, setLang, t }}>{children}</I18nContext.Provider>;
+  return <I18nContext.Provider value={{ lang, setLang, t, hindiAvailable: allowHindi }}>{children}</I18nContext.Provider>;
 }
 
 export function useT() {

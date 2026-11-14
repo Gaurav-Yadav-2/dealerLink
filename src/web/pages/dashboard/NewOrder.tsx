@@ -6,7 +6,8 @@ import { gstAmount } from "@shared/money";
 import { BackLink } from "@/components/shared";
 import { Button, buttonClass, Card, CardHeader, EmptyState, ErrorState, Field, Input, ListSkeleton, PageHeader, Pagination, SearchInput, Select, Textarea } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
-import { useAuth } from "@/lib/auth";
+import { useAuth, useFeature } from "@/lib/auth";
+import { FeatureOff } from "@/components/FeatureOff";
 import { formatINR, rupeesToPaise } from "@/lib/format";
 import { useAction, useApi } from "@/lib/hooks";
 
@@ -17,6 +18,10 @@ type Line = { product: any; quantity: number };
  * The totals shown here are a preview; the server re-prices every line with the retailer's price list when the order is saved.
  */
 export default function NewOrder() {
+  return useFeature("manualOrders") ? <NewOrderPage /> : <FeatureOff title="Creating orders for retailers" back="/dashboard/orders" />;
+}
+
+function NewOrderPage() {
   const navigate = useNavigate();
   const { session } = useAuth();
   const gstOn = !!session?.business?.gstEnabled;

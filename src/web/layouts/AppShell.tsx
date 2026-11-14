@@ -8,7 +8,7 @@ import { Logo, NotificationBell } from "@/components/shared";
 import { InstallAppButton } from "@/components/InstallApp";
 import { Badge, cn, ConfirmDialog, Spinner } from "@/components/ui";
 import { errorMessage } from "@/lib/api";
-import { useAuth } from "@/lib/auth";
+import { useAuth, useFeature } from "@/lib/auth";
 import { useApi } from "@/lib/hooks";
 
 type NavItem = { to: string; label: string; icon: LucideIcon; end?: boolean; badgeKey?: "pendingOrders" };
@@ -66,7 +66,8 @@ export function AppShell({ variant }: { variant: "owner" | "admin" }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [drawer, setDrawer] = useState(false);
-  const items = variant === "owner" ? OWNER_NAV : ADMIN_NAV;
+  const reportsOn = useFeature("reports");
+  const items = variant === "owner" ? OWNER_NAV.filter((i) => reportsOn || i.to !== "/dashboard/reports") : ADMIN_NAV;
   const dash = useApi<any>(variant === "owner" ? "/biz/dashboard" : null);
   const badges = { pendingOrders: dash.data?.data?.kpis?.pendingOrders ?? 0 };
   const title = variant === "owner" ? session?.business?.name : "Platform admin";

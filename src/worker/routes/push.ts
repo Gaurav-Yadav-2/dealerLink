@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireAuth } from "../lib/auth";
 import { AppError, body, now, ok, uuid, type AppEnv } from "../lib/http";
 import { rateLimit } from "../lib/util";
+import { requireFeature } from "../lib/features";
 import { b64u, pushConfigured, sendToTargets, type PushTarget } from "../lib/webpush";
 
 /** Phone / desktop push alerts. A subscription belongs to the signed-in user and the browser that created it. */
@@ -52,6 +53,7 @@ pushRoutes.post("/status", async (c) => {
 pushRoutes.post("/subscribe", async (c) => {
   const { user } = requireAuth(c);
   if (!pushConfigured(c.env)) throw new AppError(409, "PUSH_DISABLED", "Alerts are not set up on this site yet.");
+  requireFeature(c, "phoneAlerts");
   await rateLimit(c, "push-subscribe", user.id, 20, 3600);
   let input: z.infer<typeof subscriptionSchema>;
   try {
@@ -98,6 +100,7 @@ pushRoutes.post("/unsubscribe", async (c) => {
 pushRoutes.post("/test", async (c) => {
   const { user } = requireAuth(c);
   if (!pushConfigured(c.env)) throw new AppError(409, "PUSH_DISABLED", "Alerts are not set up on this site yet.");
+  requireFeature(c, "phoneAlerts");
   await rateLimit(c, "push-test", user.id, 5, 600);
   const { results } = await c.env.DB.prepare("SELECT id, endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = ?").bind(user.id).all<PushTarget>();
   if (!results.length) throw new AppError(409, "NO_DEVICES", "Alerts are not turned on for any of your devices.");

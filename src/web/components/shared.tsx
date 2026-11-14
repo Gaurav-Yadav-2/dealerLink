@@ -4,6 +4,7 @@ import { Bell, Check, CheckCheck, Copy, MessageCircle } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useNavigate } from "react-router-dom";
+import { useFeature } from "@/lib/auth";
 import { toast } from "sonner";
 import { AVAILABILITY_LABELS, ORDER_STATUS_LABELS, PAYMENT_STATUS_LABELS, type Availability, type OrderStatus, type PaymentStatus } from "@shared/constants";
 import { api } from "@/lib/api";
@@ -116,6 +117,8 @@ export function OrderTotals({ order, labels }: { order: any; labels?: Partial<Re
 // ── WhatsApp & link sharing ───────────────────────────────────────────
 
 export function WhatsAppLink({ phone, message, children, size = "md", variant = "whatsapp", className }: { phone?: string | null; message: string; children: ReactNode; size?: "sm" | "md" | "lg"; variant?: "whatsapp" | "secondary"; className?: string }) {
+  // switched off by the platform admin for this business: every WhatsApp button disappears
+  if (!useFeature("whatsapp")) return null;
   return (
     <a href={waLink(phone, message)} target="_blank" rel="noopener noreferrer" className={buttonClass(variant, size, className)}>
       <MessageCircle className="h-4 w-4" aria-hidden />

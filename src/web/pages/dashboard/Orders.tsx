@@ -5,9 +5,11 @@ import { OrderStatusBadge, PaymentStatusBadge } from "@/components/shared";
 import { Badge, Button, buttonClass, Card, EmptyState, ErrorState, Input, ListSkeleton, PageHeader, Pagination, SearchInput, Select, Table, Td, Th } from "@/components/ui";
 import { formatDateTime, formatINR, timeAgo } from "@/lib/format";
 import { useApi, useUrlFilters } from "@/lib/hooks";
+import { useFeature } from "@/lib/auth";
 
 export default function Orders() {
   const navigate = useNavigate();
+  const manualOn = useFeature("manualOrders");
   const { values: f, page, set } = useUrlFilters({ q: "", status: "", paymentStatus: "", from: "", to: "" });
   const q = useApi<any[]>("/biz/orders", { ...f, page }, { refetchInterval: 60_000 });
   const rows = q.data?.data ?? [];
@@ -16,7 +18,7 @@ export default function Orders() {
 
   return (
     <div>
-      <PageHeader title="Orders" description="Incoming orders from your retailers. New orders wait as Pending until you accept or reject them." actions={<Link to="/dashboard/orders/new" className={buttonClass("primary", "md")}><Plus className="h-4 w-4" aria-hidden /> Create order</Link>} />
+      <PageHeader title="Orders" description="Incoming orders from your retailers. New orders wait as Pending until you accept or reject them." actions={manualOn ? <Link to="/dashboard/orders/new" className={buttonClass("primary", "md")}><Plus className="h-4 w-4" aria-hidden /> Create order</Link> : undefined} />
       <Card>
         <div className="grid gap-2 border-b border-line p-3 sm:grid-cols-2 sm:p-4 lg:grid-cols-[1fr_auto_auto_auto_auto]">
           <SearchInput className="sm:col-span-2 lg:col-span-1" value={f.q} onChange={(v) => set({ q: v })} placeholder="Search order number or retailer" />
@@ -35,7 +37,7 @@ export default function Orders() {
           filtered ? (
             <EmptyState icon={<ClipboardList />} title="No orders match these filters" action={<Button variant="secondary" size="sm" onClick={() => set({ q: "", status: "", paymentStatus: "", from: "", to: "" })}>Clear filters</Button>} />
           ) : (
-            <EmptyState icon={<ClipboardList />} title="No orders yet" description="Orders placed by your retailers appear here. You can also enter an order yourself for a retailer who phones it in." action={<Link to="/dashboard/orders/new" className={buttonClass("primary", "md")}>Create order</Link>} />
+            <EmptyState icon={<ClipboardList />} title="No orders yet" description={manualOn ? "Orders placed by your retailers appear here. You can also enter an order yourself for a retailer who phones it in." : "Orders placed by your retailers appear here."} action={manualOn ? <Link to="/dashboard/orders/new" className={buttonClass("primary", "md")}>Create order</Link> : undefined} />
           )
         ) : (
           <>

@@ -61,6 +61,8 @@ users 1─N sessions, password_resets, notifications
 
 **product_images** (migration 0004) — `id`, `business_id`→businesses, `content_type` (`image/webp`|`image/jpeg`|`image/png`, detected from the bytes), `bytes` (≤ 400 KB), `data` (BLOB), `created_by`, `created_at`. Products reference a photo as `image_url = '/api/images/<id>'`; a product may only use its own business's photos.
 
+**business_features** (migration 0005) — `business_id`→businesses, `feature` (key from `src/shared/features.ts`), `enabled`, `updated_by`→users, `updated_at`. Primary key (`business_id`, `feature`). A feature with no row is on.
+
 ### Cart
 
 **carts** — `id`, `business_id`, `retailer_id` (unique), timestamps

@@ -4,7 +4,7 @@ import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { NotificationBell } from "@/components/shared";
 import { InstallAppButton } from "@/components/InstallApp";
 import { cn, Spinner } from "@/components/ui";
-import { useAuth } from "@/lib/auth";
+import { useAuth, useFeature } from "@/lib/auth";
 import { useApi } from "@/lib/hooks";
 import { I18nProvider, useT, type TKey } from "@/lib/i18n";
 
@@ -18,7 +18,7 @@ const NAV: { to: string; key: TKey; icon: LucideIcon }[] = [
 
 function Shell() {
   const { session, logout } = useAuth();
-  const { t, lang, setLang } = useT();
+  const { t, lang, setLang, hindiAvailable } = useT();
   const navigate = useNavigate();
   const cart = useApi<any>("/retailer/cart");
   const cartCount = cart.data?.data?.itemCount ?? 0;
@@ -38,15 +38,17 @@ function Shell() {
               </NavLink>
             ))}
           </nav>
-          <button
-            type="button"
-            onClick={() => setLang(lang === "en" ? "hi" : "en")}
-            className="flex h-9 items-center gap-1.5 rounded-lg px-2 text-[13px] font-medium text-white/90 hover:bg-white/10"
-            aria-label={lang === "en" ? "हिंदी में बदलें" : "Switch to English"}
-          >
-            <Languages className="h-4 w-4" aria-hidden />
-            {lang === "en" ? "हिंदी" : "English"}
-          </button>
+          {hindiAvailable && (
+            <button
+              type="button"
+              onClick={() => setLang(lang === "en" ? "hi" : "en")}
+              className="flex h-9 items-center gap-1.5 rounded-lg px-2 text-[13px] font-medium text-white/90 hover:bg-white/10"
+              aria-label={lang === "en" ? "हिंदी में बदलें" : "Switch to English"}
+            >
+              <Languages className="h-4 w-4" aria-hidden />
+              {lang === "en" ? "हिंदी" : "English"}
+            </button>
+          )}
           <InstallAppButton light label={t("install.button")} />
           <NotificationBell light />
           <Link to="/retailer/cart" className="relative grid h-9 w-9 place-items-center rounded-lg text-white/90 hover:bg-white/10" aria-label={`${t("nav.cart")} (${cartCount})`}>
@@ -92,8 +94,9 @@ function Shell() {
 }
 
 export function RetailerShell() {
+  const hindiOn = useFeature("hindi");
   return (
-    <I18nProvider>
+    <I18nProvider allowHindi={hindiOn}>
       <Shell />
     </I18nProvider>
   );

@@ -680,7 +680,7 @@ export function RetailerPayments() {
 // ── Profile ───────────────────────────────────────────────────────────
 
 export function RetailerProfile() {
-  const { t, lang, setLang } = useT();
+  const { t, lang, setLang, hindiAvailable } = useT();
   const { session, logout, logoutAll, refresh } = useAuth();
   const navigate = useNavigate();
   const [confirmAll, setConfirmAll] = useState(false);
@@ -712,14 +712,16 @@ export function RetailerProfile() {
           </form>
         )}
       </Card>
-      <Card>
-        <CardHeader title={t("profile.language")} />
-        <div className="flex gap-2 p-4 sm:p-5" role="group" aria-label={t("profile.language")}>
-          {([["en", "English"], ["hi", "हिंदी"]] as const).map(([code, label]) => (
-            <button key={code} type="button" aria-pressed={lang === code} onClick={() => setLang(code)} className={cn("h-10 flex-1 rounded-lg border text-sm font-medium sm:flex-none sm:px-6", lang === code ? "border-brand-800 bg-brand-800 text-white" : "border-line bg-white text-slate-700")}>{label}</button>
-          ))}
-        </div>
-      </Card>
+      {hindiAvailable && (
+        <Card>
+          <CardHeader title={t("profile.language")} />
+          <div className="flex gap-2 p-4 sm:p-5" role="group" aria-label={t("profile.language")}>
+            {([["en", "English"], ["hi", "हिंदी"]] as const).map(([code, label]) => (
+              <button key={code} type="button" aria-pressed={lang === code} onClick={() => setLang(code)} className={cn("h-10 flex-1 rounded-lg border text-sm font-medium sm:flex-none sm:px-6", lang === code ? "border-brand-800 bg-brand-800 text-white" : "border-line bg-white text-slate-700")}>{label}</button>
+            ))}
+          </div>
+        </Card>
+      )}
       <InstallAppCard text={{ title: t("install.title"), desc: t("install.desc"), button: t("install.button"), ios: t("install.ios"), installed: t("install.installed"), done: t("install.done") }} />
       <PushAlertsCard text={pushText(t)} />
       <ChangePasswordCard title={t("profile.changePassword")} />

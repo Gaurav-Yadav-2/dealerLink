@@ -6,6 +6,7 @@
  */
 import { now } from "./http";
 import type { Bindings } from "./http";
+import { businessesWithFeatureOff } from "./features";
 
 const enc = new TextEncoder();
 
@@ -144,12 +145,16 @@ const MAX_PUSHES_PER_REQUEST = 20;
 export async function dispatchPendingPush(env: Bindings, sinceIso: string, origin: string): Promise<void> {
   const db = env.DB;
   const { results: notes } = await db
-    .prepare("UPDATE notifications SET pushed_at = ? WHERE pushed_at IS NULL AND created_at >= ? RETURNING id, user_id, title, body, link")
+    .prepare("UPDATE notifications SET pushed_at = ? WHERE pushed_at IS NULL AND created_at >= ? RETURNING id, user_id, business_id, title, body, link")
     .bind(now(), sinceIso)
-    .all<{ id: string; user_id: string; title: string; body: string | null; link: string | null }>();
+    .all<{ id: string; user_id: string; business_id: string | null; title: string; body: string | null; link: string | null }>();
   if (!notes.length || !pushConfigured(env)) return;
 
-  const userIds = [...new Set(notes.map((n) => n.user_id))];
+  // businesses whose phone alerts the admin has switched off get in-app notifications only
+  const alertsOff = await businessesWithFeatureOff(db, "phoneAlerts", [...new Set(notes.map((n) => n.business_id).filter((b): b is string => !!b))]);
+  const deliverable = notes.filter((n) => !n.business_id || !alertsOff.has(n.business_id));
+  if (!deliverable.length) return;
+  const userIds = [...new Set(deliverable.map((n) => n.user_id))];
   // Only active accounts (and, for retailers, active retailer profiles) receive alerts.
   const { results: subs } = await db
     .prepare(
@@ -163,7 +168,7 @@ export async function dispatchPendingPush(env: Bindings, sinceIso: string, origi
     .all<PushTarget & { user_id: string }>();
   if (!subs.length) return;
 
-  const items = notes
+  const items = deliverable
     .flatMap((n) =>
       subs
         .filter((s) => s.user_id === n.user_id)

@@ -4,7 +4,7 @@ import { ORDER_STATUS_LABELS, PAYMENT_METHOD_LABELS, type OrderStatus } from "@s
 import { BarList, BarSeries, LineSeries } from "@/components/charts";
 import { OrderStatusBadge } from "@/components/shared";
 import { buttonClass, Card, CardHeader, cn, EmptyState, ErrorState, PageHeader, Skeleton, Stat } from "@/components/ui";
-import { useAuth } from "@/lib/auth";
+import { useAuth, useFeature } from "@/lib/auth";
 import { compactINR, formatDayShort, formatINR, formatMonth, timeAgo } from "@/lib/format";
 import { useApi } from "@/lib/hooks";
 
@@ -12,6 +12,8 @@ const STATUS_ORDER: OrderStatus[] = ["pending", "accepted", "processing", "ready
 
 export default function Overview() {
   const { session } = useAuth();
+  const manualOn = useFeature("manualOrders");
+  const reportsOn = useFeature("reports");
   const q = useApi<any>("/biz/dashboard");
 
   if (q.isLoading) {
@@ -38,7 +40,7 @@ export default function Overview() {
         description="Here’s what’s happening in your wholesale business today."
         actions={
           <>
-            <Link to="/dashboard/orders/new" className={buttonClass("secondary", "md")}><Plus className="h-4 w-4" aria-hidden /> Create order</Link>
+            {manualOn && <Link to="/dashboard/orders/new" className={buttonClass("secondary", "md")}><Plus className="h-4 w-4" aria-hidden /> Create order</Link>}
             <Link to="/dashboard/products?new=1" className={buttonClass("primary", "md")}><Plus className="h-4 w-4" aria-hidden /> Add product</Link>
           </>
         }
@@ -71,7 +73,7 @@ export default function Overview() {
         <Stat label="Orders today" value={k.ordersToday} icon={<ShoppingBag />} />
         <Stat label="Pending orders" value={k.pendingOrders} icon={<Clock />} tone={k.pendingOrders > 0 ? "warning" : "brand"} hint={k.pendingOrders > 0 ? <Link to="/dashboard/orders?status=pending" className="font-medium text-brand-700 hover:underline">Review now →</Link> : "Nothing waiting"} />
         <Stat label="Sales this month" value={formatINR(k.monthlySalesPaise)} icon={<IndianRupee />} tone="success" />
-        <Stat label="Outstanding" value={formatINR(k.outstandingPaise)} icon={<Wallet />} tone={k.outstandingPaise > 0 ? "danger" : "success"} hint={k.outstandingPaise > 0 ? <Link to="/dashboard/reports?tab=outstanding" className="font-medium text-brand-700 hover:underline">Who owes →</Link> : "All settled"} />
+        <Stat label="Outstanding" value={formatINR(k.outstandingPaise)} icon={<Wallet />} tone={k.outstandingPaise > 0 ? "danger" : "success"} hint={k.outstandingPaise > 0 ? (reportsOn ? <Link to="/dashboard/reports?tab=outstanding" className="font-medium text-brand-700 hover:underline">Who owes →</Link> : "To be collected") : "All settled"} />
         <Stat label="Active retailers" value={k.totalRetailers} icon={<Users />} />
         <Stat label="Products" value={k.totalProducts} icon={<Package />} />
       </div>
@@ -98,7 +100,7 @@ export default function Overview() {
           </div>
         </Card>
         <Card>
-          <CardHeader title="Top-selling products" description="By sales value, last 30 days" action={<Link to="/dashboard/reports?tab=products" className="text-[13px] font-medium text-brand-700 hover:underline">Full report</Link>} />
+          <CardHeader title="Top-selling products" description="By sales value, last 30 days" action={reportsOn ? <Link to="/dashboard/reports?tab=products" className="text-[13px] font-medium text-brand-700 hover:underline">Full report</Link> : undefined} />
           <div className="p-4 sm:p-5">
             {d.topProducts.length ? (
               <BarList rows={d.topProducts.map((p: any) => ({ key: p.productId, label: p.productName, value: p.salesPaise, sub: `${p.quantity} sold` }))} format={formatINR} />

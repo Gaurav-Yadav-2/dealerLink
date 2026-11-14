@@ -2,6 +2,7 @@ import { BellOff, BellRing, Smartphone, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { errorMessage } from "@/lib/api";
+import { useFeature } from "@/lib/auth";
 import { describePushError, disablePush, enablePush, getPushState, sendTestPush, type PushState } from "@/lib/push";
 import { Button, Card, CardHeader, cn } from "./ui";
 
@@ -51,6 +52,11 @@ function usePushState() {
 
 /** Full control: used on Settings (wholesaler) and Profile (retailer). */
 export function PushAlertsCard({ text }: { text: PushText }) {
+  if (!useFeature("phoneAlerts")) return null;
+  return <PushAlertsCardInner text={text} />;
+}
+
+function PushAlertsCardInner({ text }: { text: PushText }) {
   const [state, setState] = usePushState();
   const [busy, setBusy] = useState(false);
   const run = async (fn: () => Promise<PushState>) => {
@@ -104,6 +110,11 @@ const DISMISS_KEY = "dl_push_banner_dismissed";
 
 /** Gentle prompt on the retailer home screen. Shown only while alerts can be turned on and are off. */
 export function PushAlertsBanner({ text, className }: { text: PushText; className?: string }) {
+  if (!useFeature("phoneAlerts")) return null;
+  return <PushAlertsBannerInner text={text} className={className} />;
+}
+
+function PushAlertsBannerInner({ text, className }: { text: PushText; className?: string }) {
   const [state, setState] = usePushState();
   const [busy, setBusy] = useState(false);
   const [dismissed, setDismissed] = useState(() => {
