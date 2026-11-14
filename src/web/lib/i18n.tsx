@@ -105,6 +105,21 @@ const en = {
   "profile.language": "Language",
   "profile.changePassword": "Change password",
   "profile.managedBy": "Shop name and phone number are managed by your wholesaler.",
+  "qty.title": "Quantity",
+  "qty.short": "Qty",
+  "qty.enter": "Enter quantity",
+  "qty.typeHint": "Tap to type a quantity",
+  "qty.quickAdd": "Quick add",
+  "qty.clear": "Clear",
+  "qty.min": "Minimum order: {n} {unit}",
+  "qty.stock": "{n} in stock",
+  "qty.tooLow": "Minimum order is {n} {unit}",
+  "qty.raisedToMin": "Minimum order is {n} {unit}, so the quantity was set to {n}.",
+  "qty.addToCart": "Add to cart",
+  "qty.update": "Update cart",
+  "qty.remove": "Remove from cart",
+  "qty.saved": "{n} {unit} in cart",
+  "qty.removed": "Removed from cart",
   "install.title": "Install the DealerLink app",
   "install.desc": "Add DealerLink to your home screen. It opens full-screen with its own icon, like any other app — no web address to type.",
   "install.button": "Install app",
@@ -241,6 +256,21 @@ const hi: Record<keyof typeof en, string> = {
   "profile.language": "भाषा",
   "profile.changePassword": "पासवर्ड बदलें",
   "profile.managedBy": "दुकान का नाम और फ़ोन नंबर आपके थोक विक्रेता द्वारा संभाले जाते हैं।",
+  "qty.title": "मात्रा",
+  "qty.short": "मात्रा",
+  "qty.enter": "मात्रा लिखें",
+  "qty.typeHint": "मात्रा लिखने के लिए दबाएँ",
+  "qty.quickAdd": "जल्दी जोड़ें",
+  "qty.clear": "साफ़ करें",
+  "qty.min": "न्यूनतम ऑर्डर: {n} {unit}",
+  "qty.stock": "{n} स्टॉक में",
+  "qty.tooLow": "न्यूनतम ऑर्डर {n} {unit} है",
+  "qty.raisedToMin": "न्यूनतम ऑर्डर {n} {unit} है, इसलिए मात्रा {n} कर दी गई।",
+  "qty.addToCart": "कार्ट में जोड़ें",
+  "qty.update": "कार्ट अपडेट करें",
+  "qty.remove": "कार्ट से हटाएँ",
+  "qty.saved": "{n} {unit} कार्ट में",
+  "qty.removed": "कार्ट से हटाया गया",
   "install.title": "DealerLink ऐप इंस्टॉल करें",
   "install.desc": "DealerLink को अपनी होम स्क्रीन पर जोड़ें। यह दूसरे ऐप की तरह अपने आइकन के साथ पूरी स्क्रीन पर खुलेगा — वेब पता टाइप करने की ज़रूरत नहीं।",
   "install.button": "ऐप इंस्टॉल करें",
@@ -312,7 +342,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   };
   const t: I18n["t"] = (key, vars) => {
     let s: string = dictionaries[lang][key] ?? en[key] ?? key;
-    if (vars) for (const [k, v] of Object.entries(vars)) s = s.replace(`{${k}}`, String(v));
+    if (vars) for (const [k, v] of Object.entries(vars)) s = s.split(`{${k}}`).join(String(v)); // every occurrence
     return s;
   };
   return <I18nContext.Provider value={{ lang, setLang, t }}>{children}</I18nContext.Provider>;

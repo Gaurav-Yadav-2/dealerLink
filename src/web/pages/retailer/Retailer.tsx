@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, ClipboardList, FileDown, LogOut, Minus, Phone, Plus, RotateCcw, Search, ShoppingCart, Store, Trash2, Wallet } from "lucide-react";
+import { CheckCircle2, ClipboardList, FileDown, Hash, LogOut, Minus, Phone, Plus, RotateCcw, Search, ShoppingCart, Store, Trash2, Wallet } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -35,25 +35,65 @@ function useCart() {
   return { ...q, cart: q.data?.data, byId };
 }
 
-/** Add button that becomes a − qty + stepper. Every change is saved to the server-side cart. */
-function CartControl({ product, quantity, size = "md" }: { product: { id: string; name: string; minOrderQty: number; availableQty: number | null; availabilityStatus: Availability }; quantity: number; size?: "md" | "lg" }) {
-  const { t } = useT();
+type CartProduct = {
+  id: string; name: string; unit: string; minOrderQty: number; availableQty: number | null; availabilityStatus: Availability; pricePaise?: number | null;
+};
+const MAX_QTY = 1_000_000;
+
+/** Saves a quantity to the server-side cart (0 removes the item). */
+function useSetQuantity(productId: string) {
   const qc = useQueryClient();
-  const [text, setText] = useState(String(quantity));
-  useEffect(() => setText(String(quantity)), [quantity]);
-  const update = useAction((q: number) => api.put("/retailer/cart/items", { productId: product.id, quantity: q }), {
+  return useAction((q: number) => api.put("/retailer/cart/items", { productId, quantity: q }), {
     silentError: true,
     onSuccess: (data) => qc.setQueryData(["/retailer/cart", null], { data }),
   });
-  const set = (q: number) => {
+}
+
+/**
+ * Checks a quantity the retailer typed. Unlike the − button, typing a number below the minimum never removes the
+ * item: it is raised to the minimum with an explanation. Above the available stock it is lowered to what's left.
+ */
+function checkTypedQuantity(n: number, product: CartProduct, t: ReturnType<typeof useT>["t"]): { qty: number; note: string | null } {
+  if (!Number.isFinite(n) || n <= 0) return { qty: 0, note: null };
+  if (n > MAX_QTY) return { qty: MAX_QTY, note: null };
+  if (product.availableQty != null && n > product.availableQty) return { qty: product.availableQty, note: t("cat.onlyLeft", { n: product.availableQty }) };
+  if (n < product.minOrderQty) return { qty: product.minOrderQty, note: t("qty.raisedToMin", { n: product.minOrderQty, unit: product.unit }) };
+  return { qty: n, note: null };
+}
+
+/**
+ * Add button that becomes a − [qty] + stepper. The number in the middle can be typed over directly
+ * (tap it, type, press Done/Enter); the "Qty" button opens a bigger quantity screen for large orders.
+ */
+function CartControl({ product, quantity, size = "md", onOpenQuantity }: { product: CartProduct; quantity: number; size?: "md" | "lg"; onOpenQuantity?: () => void }) {
+  const { t } = useT();
+  const [text, setText] = useState(String(quantity));
+  const [editing, setEditing] = useState(false);
+  useEffect(() => {
+    if (!editing) setText(String(quantity));
+  }, [quantity, editing]);
+  const update = useSetQuantity(product.id);
+  const save = (next: number) => {
+    if (next === quantity) return setText(String(quantity));
+    update.mutate(next, { onError: (e) => { toast.error(errorMessage(e)); setText(String(quantity)); } });
+  };
+  /** − and + buttons: stepping below the minimum removes the item. */
+  const step = (q: number) => {
     let next = q;
-    if (next > 0 && next < product.minOrderQty) next = q < quantity ? 0 : product.minOrderQty; // stepping below the minimum removes the item
+    if (next > 0 && next < product.minOrderQty) next = 0;
     if (product.availableQty != null && next > product.availableQty) {
       toast.info(t("cat.onlyLeft", { n: product.availableQty }));
       next = product.availableQty;
     }
-    if (next === quantity) return setText(String(quantity));
-    update.mutate(next, { onError: (e) => { toast.error(errorMessage(e)); setText(String(quantity)); } });
+    save(next);
+  };
+  /** Reads the box itself (not React state), so a fast "type then Done" never saves a stale number. */
+  const commitTyped = (raw: string) => {
+    setEditing(false);
+    const { qty, note } = checkTypedQuantity(Number(raw.replace(/\D/g, "")), product, t);
+    if (note) toast.info(note);
+    setText(String(qty));
+    save(qty);
   };
   const h = size === "lg" ? "h-12" : "h-10";
   if (product.availabilityStatus === "out_of_stock" && quantity === 0) {
@@ -61,29 +101,144 @@ function CartControl({ product, quantity, size = "md" }: { product: { id: string
   }
   if (quantity === 0) {
     return (
-      <Button size={size} className="w-full" loading={update.isPending} onClick={() => set(product.minOrderQty)}>
-        <Plus className="h-4 w-4" aria-hidden /> {t("cat.add")}
-      </Button>
+      <div className="flex w-full gap-1.5">
+        <Button size={size} className="min-w-0 flex-1" loading={update.isPending} onClick={() => step(product.minOrderQty)}>
+          <Plus className="h-4 w-4" aria-hidden /> {t("cat.add")}
+        </Button>
+        {onOpenQuantity && (
+          <Button size={size} variant="secondary" className="shrink-0 px-2.5" onClick={onOpenQuantity} aria-label={t("qty.enter")} title={t("qty.enter")}>
+            <Hash className="h-4 w-4" aria-hidden /> <span className="text-xs">{t("qty.short")}</span>
+          </Button>
+        )}
+      </div>
     );
   }
   return (
     <div className={cn("flex w-full items-center rounded-lg border border-brand-700 bg-brand-50", h, update.isPending && "opacity-70")} role="group" aria-label={`${product.name}: ${quantity} ${t("cat.inCart")}`}>
-      <button type="button" className="grid h-full w-11 shrink-0 place-items-center rounded-l-lg text-brand-800 active:bg-brand-100" aria-label="−" onClick={() => set(quantity - 1)}>
+      <button type="button" className="grid h-full w-10 shrink-0 place-items-center rounded-l-lg text-brand-800 active:bg-brand-100" aria-label="−" onClick={() => step(quantity - 1)}>
         {quantity <= product.minOrderQty ? <Trash2 className="h-4 w-4" /> : <Minus className="h-4 w-4" />}
       </button>
+      {/* typed quantities: looks like a box you can type in, selects everything on tap so typing replaces the number */}
       <input
         inputMode="numeric"
-        aria-label={product.name}
+        enterKeyHint="done"
+        aria-label={`${t("qty.title")}: ${product.name}`}
+        title={t("qty.typeHint")}
         value={text}
+        onFocus={(e) => {
+          setEditing(true);
+          e.target.select();
+        }}
         onChange={(e) => setText(e.target.value.replace(/\D/g, "").slice(0, 7))}
-        onBlur={() => set(Number(text) || 0)}
-        onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
-        className="h-full min-w-0 flex-1 bg-transparent text-center text-sm font-semibold text-brand-900 tabular focus:outline-none"
+        onBlur={(e) => commitTyped(e.currentTarget.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+          if (e.key === "Escape") {
+            setEditing(false);
+            setText(String(quantity));
+          }
+        }}
+        className="mx-0.5 h-[calc(100%-8px)] min-w-0 flex-1 rounded-md border border-brand-200 bg-white text-center text-sm font-semibold text-brand-900 tabular focus:border-brand-500 focus:outline-none"
       />
-      <button type="button" className="grid h-full w-11 shrink-0 place-items-center rounded-r-lg text-brand-800 active:bg-brand-100" aria-label="+" onClick={() => set(quantity + 1)}>
+      <button type="button" className="grid h-full w-10 shrink-0 place-items-center rounded-r-lg text-brand-800 active:bg-brand-100" aria-label="+" onClick={() => step(quantity + 1)}>
         <Plus className="h-4 w-4" />
       </button>
+      {onOpenQuantity && (
+        <button type="button" className="grid h-full w-9 shrink-0 place-items-center border-l border-brand-200 text-brand-800 active:bg-brand-100" aria-label={t("qty.enter")} title={t("qty.enter")} onClick={onOpenQuantity}>
+          <Hash className="h-4 w-4" />
+        </button>
+      )}
     </div>
+  );
+}
+
+/**
+ * Large quantity entry: a big number field with quick-add buttons, the minimum and stock shown up front,
+ * and the line total updating as you type. Designed for orders of hundreds or thousands of units.
+ */
+function QuantityEntry({ product, quantity, onDone }: { product: CartProduct; quantity: number; onDone?: () => void }) {
+  const { t } = useT();
+  const [text, setText] = useState(String(quantity || product.minOrderQty));
+  const update = useSetQuantity(product.id);
+  const n = Number(text) || 0;
+  const tooLow = n > 0 && n < product.minOrderQty;
+  const tooHigh = product.availableQty != null && n > product.availableQty;
+  const invalid = n <= 0 || tooLow || tooHigh || n > MAX_QTY;
+  const add = (k: number) => setText(String(Math.min(MAX_QTY, n + k)));
+  const save = (q: number) =>
+    update.mutate(q, {
+      onSuccess: () => {
+        toast.success(q === 0 ? t("qty.removed") : t("qty.saved", { n: q, unit: product.unit }));
+        onDone?.();
+      },
+      onError: (e) => toast.error(errorMessage(e)),
+    });
+  // quick-add steps scale with the product's minimum order quantity
+  const steps = product.minOrderQty >= 10 ? [product.minOrderQty, product.minOrderQty * 5, product.minOrderQty * 10] : [10, 50, 100];
+  return (
+    <form
+      className="space-y-3"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!invalid) save(n);
+      }}
+    >
+      <label className="block">
+        <span className="mb-1.5 flex items-baseline justify-between text-[13px] font-medium text-slate-700">
+          {t("qty.title")} <span className="font-normal text-slate-500">{product.unit}</span>
+        </span>
+        <input
+          autoFocus
+          inputMode="numeric"
+          enterKeyHint="done"
+          value={text}
+          onFocus={(e) => e.target.select()}
+          onChange={(e) => setText(e.target.value.replace(/\D/g, "").slice(0, 7))}
+          aria-invalid={invalid && n > 0}
+          className="h-14 w-full rounded-lg border border-line bg-white text-center text-2xl font-semibold text-slate-900 tabular shadow-sm focus:border-brand-500 focus:ring-2 focus:ring-brand-100 focus:outline-none aria-[invalid=true]:border-red-400"
+        />
+      </label>
+      <div className="flex flex-wrap gap-1.5" role="group" aria-label={t("qty.quickAdd")}>
+        {steps.map((k) => (
+          <button key={k} type="button" onClick={() => add(k)} className="h-9 rounded-full border border-line bg-white px-3 text-sm font-medium text-slate-700 tabular active:bg-slate-100">
+            +{k}
+          </button>
+        ))}
+        <button type="button" onClick={() => setText("")} className="h-9 rounded-full px-3 text-sm font-medium text-slate-500 active:bg-slate-100">{t("qty.clear")}</button>
+      </div>
+      <p className="text-xs text-slate-500">
+        {t("qty.min", { n: product.minOrderQty, unit: product.unit })}
+        {product.availableQty != null && <> · {t("qty.stock", { n: product.availableQty })}</>}
+      </p>
+      {tooLow && <p role="alert" className="text-xs font-medium text-red-600">{t("qty.tooLow", { n: product.minOrderQty, unit: product.unit })}</p>}
+      {tooHigh && <p role="alert" className="text-xs font-medium text-red-600">{t("cat.onlyLeft", { n: product.availableQty! })}</p>}
+      {product.pricePaise != null && n > 0 && !invalid && (
+        <p className="flex items-baseline justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm">
+          <span className="text-slate-600 tabular">{n} × {formatINR(product.pricePaise)}</span>
+          <span className="font-semibold text-slate-900 tabular">{formatINR(n * product.pricePaise)}</span>
+        </p>
+      )}
+      <div className="flex gap-2">
+        {quantity > 0 && (
+          <Button variant="dangerOutline" size="lg" disabled={update.isPending} onClick={() => save(0)} aria-label={t("qty.remove")}>
+            <Trash2 className="h-4 w-4" aria-hidden />
+          </Button>
+        )}
+        <Button type="submit" size="lg" className="flex-1" disabled={invalid} loading={update.isPending}>
+          {quantity > 0 ? t("qty.update") : t("qty.addToCart")}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+/** QuantityEntry in its own small dialog (bottom sheet on phones), opened from the "Qty" buttons. */
+function QuantityDialog({ product, quantity, onClose }: { product: CartProduct | null; quantity: number; onClose: () => void }) {
+  const { t } = useT();
+  return (
+    <Modal open={!!product} onOpenChange={(o) => !o && onClose()} title={product?.name ?? ""} description={t("qty.enter")} size="sm">
+      {product && <QuantityEntry key={product.id} product={product} quantity={quantity} onDone={onClose} />}
+    </Modal>
   );
 }
 
@@ -174,6 +329,7 @@ export function Catalogue() {
   const q = useApi<any[]>("/retailer/products", { ...f, page });
   const { cart, byId } = useCart();
   const [detail, setDetail] = useState<any | null>(null);
+  const [qtyFor, setQtyFor] = useState<any | null>(null);
   const rows = q.data?.data ?? [];
   const categories: any[] = store.data?.data.categories ?? [];
 
@@ -215,7 +371,7 @@ export function Catalogue() {
                   <AvailabilityBadge status={p.availabilityStatus} label={t(availKey[p.availabilityStatus as Availability])} />
                   {p.minOrderQty > 1 && <span className="text-[11px] text-slate-500">{t("cat.minQty")}: {p.minOrderQty}</span>}
                 </div>
-                <CartControl product={p} quantity={byId[p.id] ?? 0} />
+                <CartControl product={p} quantity={byId[p.id] ?? 0} onOpenQuantity={() => setQtyFor(p)} />
               </div>
             </li>
           ))}
@@ -245,10 +401,17 @@ export function Catalogue() {
             </div>
             <p className="text-[13px] text-slate-600">{t("cat.minQty")}: <span className="font-medium text-slate-900">{detail.minOrderQty} {detail.unit}</span></p>
             {detail.description && <p className="text-sm leading-relaxed whitespace-pre-wrap text-slate-600">{detail.description}</p>}
-            <CartControl product={detail} quantity={byId[detail.id] ?? 0} size="lg" />
+            {detail.availabilityStatus === "out_of_stock" && !byId[detail.id] ? (
+              <CartControl product={detail} quantity={0} size="lg" />
+            ) : (
+              <div className="border-t border-line pt-4">
+                <QuantityEntry key={`${detail.id}-${byId[detail.id] ?? 0}`} product={detail} quantity={byId[detail.id] ?? 0} onDone={() => setDetail(null)} />
+              </div>
+            )}
           </div>
         )}
       </Modal>
+      <QuantityDialog product={qtyFor} quantity={qtyFor ? byId[qtyFor.id] ?? 0 : 0} onClose={() => setQtyFor(null)} />
     </div>
   );
 }
@@ -266,6 +429,10 @@ export function CartPage() {
   const place = useAction(() => api.post("/retailer/orders", { note }), { onSuccess: (d) => { setPlaced(d); setNote(""); } });
   const clear = useAction(() => api.del("/retailer/cart"), { onSuccess: () => setClearing(false) });
   const cart = q.cart;
+  const [qtyFor, setQtyFor] = useState<any | null>(null);
+  const cartProduct = (it: any): CartProduct => ({
+    id: it.productId, name: it.name, unit: it.unit, minOrderQty: it.minOrderQty, availableQty: it.availableQty, availabilityStatus: "in_stock", pricePaise: it.unitPricePaise,
+  });
 
   if (placed) {
     return (
@@ -306,8 +473,8 @@ export function CartPage() {
                     </div>
                     <p className="shrink-0 text-sm font-semibold tabular">{it.lineSubtotalPaise != null ? formatINR(it.lineSubtotalPaise) : "—"}</p>
                   </div>
-                  <div className="mt-2 ml-[4.25rem] max-w-[11rem]">
-                    <CartControl product={{ id: it.productId, name: it.name, minOrderQty: it.minOrderQty, availableQty: it.availableQty, availabilityStatus: "in_stock" }} quantity={it.quantity} />
+                  <div className="mt-2 ml-[4.25rem] max-w-[13rem]">
+                    <CartControl product={cartProduct(it)} quantity={it.quantity} onOpenQuantity={() => setQtyFor(it)} />
                   </div>
                 </li>
               ))}
@@ -337,6 +504,7 @@ export function CartPage() {
         </div>
       )}
       <ConfirmDialog open={clearing} onOpenChange={setClearing} title={`${t("cart.clear")}?`} confirmLabel={t("cart.clear")} loading={clear.isPending} onConfirm={() => clear.mutate()} />
+      <QuantityDialog product={qtyFor ? cartProduct(qtyFor) : null} quantity={qtyFor?.quantity ?? 0} onClose={() => setQtyFor(null)} />
     </div>
   );
 }

@@ -49,6 +49,7 @@ Status as of 2026-11-11. "Tested" means covered by the automated suite (`npm tes
 - [x] Server-side cart, quantity stepper, minimum quantity and stock validation
 - [x] Checkout that sends no prices; tampered requests are ignored
 - [x] English / Hindi toggle *(UI: manual)*
+- [x] Typed quantities for large orders: editable quantity box in every stepper, plus a quantity screen (big number field, quick-add buttons, minimum / stock shown, live total); typing below the minimum raises it instead of removing the item *(UI: manual, phone size)*
 
 ### Module 7 — Order management
 - [x] Eight statuses with an enforced state machine and concurrency guard
