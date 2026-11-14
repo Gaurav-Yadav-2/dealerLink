@@ -1,4 +1,4 @@
-import { api } from "./api";
+import { api, ApiError } from "./api";
 
 /**
  * Phone / desktop alerts via the browser's free Web Push service.
@@ -76,3 +76,17 @@ export async function disablePush(): Promise<PushState> {
 }
 
 export const sendTestPush = () => api.post<{ sent: number }>("/push/test");
+
+/**
+ * Turns a failure while enabling alerts into something a person can act on.
+ * The most common cause is a browser whose push service is switched off (Brave does this by default),
+ * which surfaces as an AbortError "Registration failed - push service error".
+ */
+export function describePushError(e: unknown): { kind: "service-off" | "denied" | "server" | "other"; detail: string } {
+  if (e instanceof ApiError) return { kind: "server", detail: e.message };
+  const name = (e as { name?: string })?.name ?? "";
+  const message = (e as { message?: string })?.message ?? String(e);
+  if (name === "NotAllowedError" || /permission/i.test(message)) return { kind: "denied", detail: message };
+  if (name === "AbortError" || /push service/i.test(message)) return { kind: "service-off", detail: message };
+  return { kind: "other", detail: [name, message].filter(Boolean).join(": ") };
+}

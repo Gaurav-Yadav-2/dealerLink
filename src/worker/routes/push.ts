@@ -21,11 +21,17 @@ const endpointSchema = z
       return false;
     }
   }, "This browser's push service is not supported");
+/** Browsers send base64url keys; accept standard base64 and '=' padding too, and store the canonical unpadded base64url form. */
+const b64urlKey = (min: number, max: number, message: string) =>
+  z
+    .string()
+    .transform((s) => s.trim().replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""))
+    .refine((s) => new RegExp(`^[A-Za-z0-9_-]{${min},${max}}$`).test(s), message);
 const subscriptionSchema = z.object({
   endpoint: endpointSchema,
   keys: z.object({
-    p256dh: z.string().regex(/^[A-Za-z0-9_-]{86,88}$/, "Invalid browser key"),
-    auth: z.string().regex(/^[A-Za-z0-9_-]{21,24}$/, "Invalid browser secret"),
+    p256dh: b64urlKey(86, 88, "Invalid browser key"),
+    auth: b64urlKey(21, 24, "Invalid browser secret"),
   }),
 });
 const endpointOnly = z.object({ endpoint: z.string().max(1000) });
@@ -47,7 +53,21 @@ pushRoutes.post("/subscribe", async (c) => {
   const { user } = requireAuth(c);
   if (!pushConfigured(c.env)) throw new AppError(409, "PUSH_DISABLED", "Alerts are not set up on this site yet.");
   await rateLimit(c, "push-subscribe", user.id, 20, 3600);
-  const input = await body(c, subscriptionSchema);
+  let input: z.infer<typeof subscriptionSchema>;
+  try {
+    input = await body(c, subscriptionSchema);
+  } catch (e) {
+    // Log why (and which push service) without logging the subscription's tokens, to diagnose browser-specific failures.
+    const raw = (await c.req.json().catch(() => null)) as { endpoint?: unknown } | null;
+    let host = "unknown";
+    try {
+      host = new URL(String(raw?.endpoint)).hostname;
+    } catch {
+      /* not a URL */
+    }
+    console.warn("Push subscribe rejected:", host, e instanceof Error ? e.message : "invalid");
+    throw e;
+  }
   const key = b64u.decode(input.keys.p256dh);
   if (key.length !== 65 || key[0] !== 4) throw new AppError(422, "VALIDATION_ERROR", "Invalid browser key");
   const db = c.env.DB;

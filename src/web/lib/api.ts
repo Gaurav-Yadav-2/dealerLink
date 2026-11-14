@@ -60,14 +60,16 @@ async function request<T>(method: string, path: string, body?: unknown, extraHea
   const headers: Record<string, string> = { ...extraHeaders };
   const token = readToken();
   if (token) headers["X-DL-Session"] = token;
+  const isFile = body instanceof Blob;
   if (method !== "GET") {
     headers["X-DL-Client"] = "web";
     headers["X-CSRF-Token"] = csrfToken;
-    headers["Content-Type"] = "application/json";
+    headers["Content-Type"] = isFile ? (body as Blob).type || "application/octet-stream" : "application/json";
   }
   let res: Response;
   try {
-    res = await fetch(`/api${path}`, { method, headers, credentials: "omit", body: method === "GET" ? undefined : JSON.stringify(body ?? {}) });
+    const payload = method === "GET" ? undefined : isFile ? (body as Blob) : JSON.stringify(body ?? {});
+    res = await fetch(`/api${path}`, { method, headers, credentials: "omit", body: payload });
   } catch {
     throw new ApiError(0, "NETWORK", "Could not reach the server. Check your internet connection and try again.");
   }
@@ -95,6 +97,8 @@ export const api = {
   put: <T = any>(path: string, body?: unknown) => request<T>("PUT", path, body),
   patch: <T = any>(path: string, body?: unknown) => request<T>("PATCH", path, body),
   del: <T = any>(path: string) => request<T>("DELETE", path),
+  /** Sends a file (e.g. a compressed photo) as the raw request body. */
+  upload: <T = any>(path: string, file: Blob) => request<T>("POST", path, file),
 };
 
 export const errorMessage = (e: unknown) => (e instanceof Error ? e.message : "Something went wrong. Please try again.");

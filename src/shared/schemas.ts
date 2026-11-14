@@ -73,9 +73,23 @@ export const productSchema = z.object({
   minOrderQty: z.number().int().min(1).max(100000).default(1),
   stockQty: z.number().int().min(0).max(100_000_000).nullable().optional(),
   availability: z.enum(AVAILABILITIES).default("in_stock"),
+  // Either a photo uploaded to DealerLink ("/api/images/<id>") or an external http(s) link.
   imageUrl: z.preprocess(
     (v) => (typeof v === "string" && v.trim() === "" ? null : v),
-    z.string().trim().url("Enter a valid image URL").max(500).refine((u) => /^https?:\/\//i.test(u), "Image URL must start with http(s)://").nullable().optional(),
+    z
+      .string()
+      .trim()
+      .max(500)
+      .refine((u) => {
+        if (/^\/api\/images\/[0-9a-f-]{36}$/.test(u)) return true;
+        try {
+          return /^https?:$/.test(new URL(u).protocol);
+        } catch {
+          return false;
+        }
+      }, "Enter a valid image link starting with http(s)://")
+      .nullable()
+      .optional(),
   ),
   isActive: z.boolean().default(true),
 });

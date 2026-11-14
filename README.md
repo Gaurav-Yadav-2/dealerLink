@@ -147,6 +147,14 @@ Registration, sign-in, forgot-password and invitation sign-up can require Cloudf
 
 If Cloudflare's check cannot be reached, the form is refused rather than let through. For local testing you can use Cloudflare's documented test keys (site key `1x00000000000000000000AA`, secret `1x0000000000000000000000000000000AA`, which always pass) in `.dev.vars`.
 
+## Product photos
+
+When adding or editing a product, wholesalers can **take a photo with the phone camera**, **choose one from the gallery / computer**, drag one in, or paste an image link. The browser rotates, resizes (max ~1000 px) and compresses each photo before upload — a several-MB phone photo becomes roughly 50–150 KB — so uploads are quick on slow connections.
+
+Photos are stored in the D1 database (table `product_images`), so no separate storage service or card is needed. Limits: 400 KB per photo after compression, 5,000 photos per business. D1's free plan allows about 500 MB per database, i.e. a few thousand photos alongside your orders; if you outgrow it, move photos to Cloudflare R2.
+
+Photos are served at `/api/images/<random id>` without sign-in (image tags can't send the per-tab session), with long-term browser caching. The id is random and unguessable, but anyone who has the link can view that photo. Replacing or removing a product's photo deletes the old one; archived products keep theirs.
+
 ## Install as an app, and link previews
 
 DealerLink can be installed on phones and computers. It then opens from the home screen with its own name and icon, full-screen, with no web address shown, starting at the sign-in page.
@@ -202,7 +210,7 @@ To deploy from GitHub instead, push the repository and connect it under **Worker
 - **GST is simplified.** When enabled, each product's GST rate is added on top of its price. There is no CGST/SGST/IGST split and no HSN codes; the PDF is an order summary, not a statutory tax invoice. Order-level discounts are applied after tax.
 - **One retailer account per wholesaler.** A retailer login is tied to a single wholesaler; a shop buying from two DealerLink wholesalers needs two emails.
 - **One owner login per business.** Staff accounts with limited permissions are not built yet.
-- **Product images are URLs.** There is no image upload; products without an image show a placeholder.
+- **Product photos** are stored in D1 (see "Product photos"), which suits a few thousand photos; very large catalogues should move them to R2.
 - **All dates use India Standard Time** for "today", daily reports and date filters.
 - **WhatsApp messages are click-to-chat links** (`wa.me`): WhatsApp opens with the message pre-filled and the user presses send. Nothing is sent automatically.
 - **Hindi covers the retailer portal** only; product names and notes appear as entered.

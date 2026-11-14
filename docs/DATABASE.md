@@ -59,6 +59,8 @@ users 1─N sessions, password_resets, notifications
 
 **retailer_product_prices** — `id`, `business_id`, `retailer_id`→retailer_profiles, `product_id`→products, `price_paise`, timestamps. Unique (`retailer_id`, `product_id`).
 
+**product_images** (migration 0004) — `id`, `business_id`→businesses, `content_type` (`image/webp`|`image/jpeg`|`image/png`, detected from the bytes), `bytes` (≤ 400 KB), `data` (BLOB), `created_by`, `created_at`. Products reference a photo as `image_url = '/api/images/<id>'`; a product may only use its own business's photos.
+
 ### Cart
 
 **carts** — `id`, `business_id`, `retailer_id` (unique), timestamps

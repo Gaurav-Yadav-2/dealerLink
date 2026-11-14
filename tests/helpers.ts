@@ -46,6 +46,18 @@ export class Client {
   del(path: string) {
     return this.send("DELETE", path);
   }
+  /** Uploads raw bytes (like the web app's photo upload). */
+  async upload(path: string, bytes: Uint8Array, type = "image/jpeg") {
+    const res: Response = await (exports as any).default.fetch(
+      new Request(ORIGIN + path, {
+        method: "POST",
+        headers: { "cf-connecting-ip": this.ip, "x-dl-session": this.token, "x-dl-client": "web", "x-csrf-token": this.csrf, origin: ORIGIN, "content-type": type },
+        body: bytes,
+      }),
+    );
+    const json: any = await res.json().catch(() => ({}));
+    return { status: res.status, data: json.data, error: json.error };
+  }
 }
 
 export async function registerOwner(label = "Biz") {

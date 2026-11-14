@@ -2,13 +2,22 @@ import { BellOff, BellRing, Smartphone, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { errorMessage } from "@/lib/api";
-import { disablePush, enablePush, getPushState, sendTestPush, type PushState } from "@/lib/push";
+import { describePushError, disablePush, enablePush, getPushState, sendTestPush, type PushState } from "@/lib/push";
 import { Button, Card, CardHeader, cn } from "./ui";
 
 export type PushText = {
   title: string; desc: string; turnOn: string; turnOff: string; on: string; test: string; testSent: string; denied: string;
-  unsupported: string; install: string; notConfigured: string; dismiss: string; failed: string;
+  unsupported: string; install: string; notConfigured: string; dismiss: string; failed: string; serviceOff: string;
 };
+
+/** Shows why turning alerts on failed, with the browser's own reason when there is no friendlier one. */
+function showPushError(e: unknown, text: PushText) {
+  const { kind, detail } = describePushError(e);
+  const message =
+    kind === "service-off" ? text.serviceOff : kind === "denied" ? text.denied : kind === "server" ? detail : `${text.failed} (${detail})`;
+  toast.error(message, { duration: 12000 });
+  console.warn("Turning on alerts failed:", kind, detail);
+}
 
 export const PUSH_TEXT_EN_OWNER: PushText = {
   title: "Order alerts on this device",
@@ -24,6 +33,8 @@ export const PUSH_TEXT_EN_OWNER: PushText = {
   notConfigured: "Alerts are not set up on this site yet (see the README: 'Phone alerts').",
   dismiss: "Not now",
   failed: "Couldn't turn on alerts. Please try again.",
+  serviceOff:
+    "Your browser's push service is switched off, so alerts can't be delivered. In Brave: Settings → Privacy and security → turn on 'Use Google services for push messaging', then try again. Or use Chrome or Edge.",
 };
 
 function usePushState() {
@@ -47,7 +58,7 @@ export function PushAlertsCard({ text }: { text: PushText }) {
     try {
       setState(await fn());
     } catch (e) {
-      toast.error(e instanceof Error && e.message ? errorMessage(e) : text.failed);
+      showPushError(e, text);
     } finally {
       setBusy(false);
     }
@@ -117,8 +128,8 @@ export function PushAlertsBanner({ text, className }: { text: PushText; classNam
       const s = await enablePush();
       setState(s);
       if (s === "denied") toast.error(text.denied);
-    } catch {
-      toast.error(text.failed);
+    } catch (e) {
+      showPushError(e, text);
     } finally {
       setBusy(false);
     }

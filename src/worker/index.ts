@@ -3,6 +3,7 @@ import { loadAuth } from "./lib/auth";
 import { AppError, now, ok, type AppEnv } from "./lib/http";
 import { dispatchPendingPush } from "./lib/webpush";
 import { pushRoutes } from "./routes/push";
+import { imageRoutes } from "./routes/images";
 import { authRoutes } from "./routes/auth";
 import { bizRoutes } from "./routes/biz";
 import { catalogRoutes } from "./routes/catalog";
@@ -96,6 +97,7 @@ app.get("/api/public/store/:slug", async (c) => {
 app.route("/api/auth", authRoutes);
 app.route("/api/notifications", notificationRoutes);
 app.route("/api/push", pushRoutes);
+app.route("/api/images", imageRoutes);
 app.route("/api/biz", bizRoutes);
 app.route("/api/biz", catalogRoutes);
 app.route("/api/biz", retailerMgmtRoutes);

@@ -137,6 +137,7 @@ const en = {
   "push.notConfigured": "Alerts are not set up on this site yet.",
   "push.dismiss": "Not now",
   "push.failed": "Couldn't turn on alerts. Please try again.",
+  "push.serviceOff": "Your browser's push service is switched off, so alerts can't be delivered. In Brave: Settings → Privacy and security → turn on 'Use Google services for push messaging', then try again. Or use Chrome.",
 };
 
 const hi: Record<keyof typeof en, string> = {
@@ -272,6 +273,7 @@ const hi: Record<keyof typeof en, string> = {
   "push.notConfigured": "इस साइट पर अभी अलर्ट सेट नहीं हैं।",
   "push.dismiss": "अभी नहीं",
   "push.failed": "अलर्ट चालू नहीं हो सके। फिर कोशिश करें।",
+  "push.serviceOff": "आपके ब्राउज़र की पुश सेवा बंद है, इसलिए अलर्ट नहीं आ सकते। Brave में: Settings → Privacy and security → 'Use Google services for push messaging' चालू करें, फिर दोबारा कोशिश करें। या Chrome इस्तेमाल करें।",
 };
 
 export type Lang = "en" | "hi";

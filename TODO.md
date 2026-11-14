@@ -113,7 +113,9 @@ Status as of 2026-11-11. "Tested" means covered by the automated suite (`npm tes
 
 ### Product
 - [ ] Staff logins with limited permissions (`business_members.role` already exists)
-- [ ] Product image upload (Cloudflare R2 has a free tier; currently image URLs only)
+- [x] Product photo upload: camera, gallery/files, drag-and-drop or link; compressed in the browser, stored in D1 *(tested; camera button verified only on desktop — try on a phone)*
+- [ ] Move photos to Cloudflare R2 if a catalogue outgrows D1 (needs R2 enabled on the account)
+- [ ] Clean up photos uploaded for a product that was never saved
 - [ ] Edit order lines after placement (currently: cancel and re-create)
 - [ ] Partial dispatch / back-orders
 - [ ] Proper GST invoices: HSN codes, CGST/SGST/IGST split, invoice numbering

@@ -1,4 +1,4 @@
-import { Archive, Download, FileUp, ImageOff, MoreHorizontal, Package, Pencil, Plus, RotateCcw, Upload } from "lucide-react";
+import { Archive, Camera, Download, FileUp, ImageOff, ImagePlus, Loader2, MoreHorizontal, Package, Pencil, Plus, RotateCcw, Trash2, Upload } from "lucide-react";
 import * as Dropdown from "@radix-ui/react-dropdown-menu";
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -13,9 +13,11 @@ import { downloadCsv, parseCsv, PRODUCT_CSV_HEADERS, toCsv } from "@/lib/csv";
 import { formatGstRate, formatINR, paiseToRupeesString, rupeesToPaise } from "@/lib/format";
 import { useAction, useApi, useUrlFilters } from "@/lib/hooks";
 import { applyServerErrors } from "../public/Public";
+import { prepareProductPhoto } from "@/lib/image";
 
 export function ProductThumb({ url, name, className = "h-10 w-10" }: { url?: string | null; name: string; className?: string }) {
   const [broken, setBroken] = useState(false);
+  useEffect(() => setBroken(false), [url]); // a new photo gets a fresh chance to load
   if (!url || broken) {
     return (
       <span className={`grid shrink-0 place-items-center rounded-lg bg-slate-100 text-slate-400 ${className}`} aria-hidden>
@@ -24,6 +26,94 @@ export function ProductThumb({ url, name, className = "h-10 w-10" }: { url?: str
     );
   }
   return <img src={url} alt={name} loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={() => setBroken(true)} className={`shrink-0 rounded-lg bg-slate-100 object-cover ${className}`} />;
+}
+
+/**
+ * Product photo: take one with the camera, pick one from the phone / computer, drag one in, or paste a link.
+ * Photos are resized and compressed in the browser, then uploaded straight away.
+ */
+function ProductPhotoField({ value, onChange, error, productName }: { value: string; onChange: (url: string) => void; error?: string; productName: string }) {
+  const cameraInput = useRef<HTMLInputElement>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [showLink, setShowLink] = useState(() => !!value && !value.startsWith("/api/images/"));
+  const [dragging, setDragging] = useState(false);
+  const hasCamera = typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches;
+
+  const upload = async (file: File | undefined) => {
+    if (!file) return;
+    setBusy(true);
+    try {
+      const photo = await prepareProductPhoto(file);
+      const res = await api.upload<{ url: string }>("/biz/images", photo);
+      onChange(res.data.url);
+      setShowLink(false);
+      toast.success("Photo added");
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const pick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    void upload(e.target.files?.[0]);
+    e.target.value = ""; // allow choosing the same file again
+  };
+
+  return (
+    <div>
+      <span className="mb-1.5 block text-[13px] font-medium text-slate-700">Product photo</span>
+      <div
+        className={`flex flex-col gap-3 rounded-lg border border-dashed p-3 sm:flex-row sm:items-center ${dragging ? "border-brand-500 bg-brand-50" : "border-line"}`}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragging(true);
+        }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragging(false);
+          void upload(e.dataTransfer.files?.[0]);
+        }}
+      >
+        <div className="relative shrink-0">
+          <ProductThumb url={value || null} name={productName || "Product photo"} className="h-24 w-24" />
+          {busy && (
+            <span className="absolute inset-0 grid place-items-center rounded-lg bg-white/70" role="status" aria-label="Uploading photo">
+              <Loader2 className="h-5 w-5 animate-spin text-brand-600" />
+            </span>
+          )}
+        </div>
+        <div className="min-w-0 flex-1 space-y-2">
+          <div className="flex flex-wrap gap-2">
+            {hasCamera && (
+              <Button variant="secondary" size="sm" disabled={busy} onClick={() => cameraInput.current?.click()}>
+                <Camera className="h-4 w-4" aria-hidden /> Take photo
+              </Button>
+            )}
+            <Button variant="secondary" size="sm" disabled={busy} onClick={() => fileInput.current?.click()}>
+              <ImagePlus className="h-4 w-4" aria-hidden /> {hasCamera ? "Choose from gallery" : "Upload photo"}
+            </Button>
+            {value && (
+              <Button variant="ghost" size="sm" disabled={busy} onClick={() => onChange("")}>
+                <Trash2 className="h-4 w-4 text-red-600" aria-hidden /> Remove
+              </Button>
+            )}
+          </div>
+          <p className="text-xs text-slate-500">{hasCamera ? "Use your camera or a photo from your gallery." : "Click to choose a photo, or drag one here."} JPG, PNG or WebP — it is resized automatically.</p>
+          {showLink ? (
+            <Input type="url" inputMode="url" aria-label="Image link" value={value.startsWith("/api/images/") ? "" : value} onChange={(e) => onChange(e.target.value)} placeholder="https://… (link to a photo)" />
+          ) : (
+            <button type="button" className="text-xs font-medium text-brand-700 hover:underline" onClick={() => setShowLink(true)}>Use an image link instead</button>
+          )}
+          {error && <span role="alert" className="block text-xs text-red-600">{error}</span>}
+        </div>
+        {/* capture="environment" opens the back camera directly on phones */}
+        <input ref={cameraInput} type="file" accept="image/*" capture="environment" className="sr-only" tabIndex={-1} aria-hidden onChange={pick} />
+        <input ref={fileInput} type="file" accept="image/jpeg,image/png,image/webp,image/*" className="sr-only" tabIndex={-1} aria-hidden onChange={pick} />
+      </div>
+    </div>
+  );
 }
 
 type FormValues = {
@@ -108,9 +198,14 @@ function ProductForm({ product, onClose }: { product: any | null; onClose: () =>
           <Select {...register("availability")}>{AVAILABILITIES.map((a) => <option key={a} value={a}>{AVAILABILITY_LABELS[a]}</option>)}</Select>
         </Field>
       )}
-      <Field label="Image URL" error={errors.imageUrl?.message} hint="Optional link to a product photo (https://…)" className="sm:col-span-2">
-        <Input type="url" inputMode="url" {...register("imageUrl")} placeholder="https://" />
-      </Field>
+      <div className="sm:col-span-2">
+        <ProductPhotoField
+          value={watch("imageUrl")}
+          onChange={(url) => setValue("imageUrl", url, { shouldDirty: true })}
+          error={errors.imageUrl?.message}
+          productName={watch("name")}
+        />
+      </div>
       <Field label="Description" error={errors.description?.message} className="sm:col-span-2">
         <Textarea {...register("description")} placeholder="Optional details retailers should know" />
       </Field>

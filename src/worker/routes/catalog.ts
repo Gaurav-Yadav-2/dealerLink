@@ -4,7 +4,8 @@ import { rupeesToPaise } from "../../shared/money";
 import { categorySchema, productImportRowSchema, productImportSchema, productPatchSchema, productSchema } from "../../shared/schemas";
 import { ownerCtx, ownerOnly, type BusinessRow } from "../lib/auth";
 import { body, conflict, invalid, like, notFound, now, ok, pageParams, uuid, type AppEnv } from "../lib/http";
-import { auditStmt, isConstraintError, resolveAvailability } from "../lib/util";
+import { auditStmt, isConstraintError, rateLimit, resolveAvailability } from "../lib/util";
+import { imagesBelongTo, internalImageId, MAX_IMAGE_BYTES, MAX_IMAGES_PER_BUSINESS, sniffImageType } from "../lib/images";
 
 export const catalogRoutes = new Hono<AppEnv>();
 catalogRoutes.use("*", ownerOnly);
@@ -83,6 +84,14 @@ const SORTS: Record<string, string> = {
   stock: "p.stock_qty IS NULL, p.stock_qty ASC",
 };
 
+/** An uploaded photo may only be used by products of the business that uploaded it. */
+async function assertImageOwned(db: D1Database, businessId: string, url: string | null | undefined) {
+  const id = internalImageId(url);
+  if (id && !(await imagesBelongTo(db, businessId, [url])).has(id)) {
+    throw invalid("imageUrl: This photo was not found in your catalogue. Upload it again.", [{ path: "imageUrl", message: "Photo not found" }]);
+  }
+}
+
 async function assertCategory(db: D1Database, businessId: string, categoryId: string | null | undefined) {
   if (!categoryId) return;
   const row = await db.prepare("SELECT 1 FROM categories WHERE id = ? AND business_id = ? AND deleted_at IS NULL").bind(categoryId, businessId).first();
@@ -142,6 +151,7 @@ catalogRoutes.post("/products", async (c) => {
   const input = await body(c, productSchema);
   const db = c.env.DB;
   await assertCategory(db, business.id, input.categoryId);
+  await assertImageOwned(db, business.id, input.imageUrl);
   const id = uuid();
   const ts = now();
   try {
@@ -176,9 +186,21 @@ catalogRoutes.patch("/products/:id", async (c) => {
   const raw = await c.req.json().catch(() => ({}));
   const input = await body(c, productPatchSchema);
   const db = c.env.DB;
-  const existing = await db.prepare("SELECT price_paise FROM products WHERE id = ? AND business_id = ? AND archived_at IS NULL").bind(id, business.id).first<{ price_paise: number }>();
+  const existing = await db
+    .prepare("SELECT price_paise, image_url FROM products WHERE id = ? AND business_id = ? AND archived_at IS NULL")
+    .bind(id, business.id)
+    .first<{ price_paise: number; image_url: string | null }>();
   if (!existing) throw notFound("Product");
   if ("categoryId" in input) await assertCategory(db, business.id, input.categoryId);
+  if ("imageUrl" in raw) await assertImageOwned(db, business.id, input.imageUrl);
+  // When a product's uploaded photo is replaced or removed, delete the old one (unless another product still uses it).
+  const oldImage = internalImageId(existing.image_url);
+  const dropOldImage =
+    "imageUrl" in raw && oldImage && internalImageId(input.imageUrl) !== oldImage
+      ? db
+          .prepare("DELETE FROM product_images WHERE id = ? AND business_id = ? AND NOT EXISTS (SELECT 1 FROM products WHERE business_id = ? AND image_url = ?)")
+          .bind(oldImage, business.id, business.id, existing.image_url)
+      : null;
 
   const sets: string[] = [];
   const params: unknown[] = [];
@@ -194,6 +216,7 @@ catalogRoutes.patch("/products/:id", async (c) => {
   try {
     await db.batch([
       db.prepare(`UPDATE products SET ${sets.join(", ")}, updated_at = ? WHERE id = ? AND business_id = ?`).bind(...params, now(), id, business.id),
+      ...(dropOldImage ? [dropOldImage] : []),
       auditStmt(db, {
         businessId: business.id, actorId: user.id, action: "product.updated", entityType: "product", entityId: id,
         metadata: input.pricePaise != null && input.pricePaise !== existing.price_paise ? { priceFrom: existing.price_paise, priceTo: input.pricePaise } : undefined,
@@ -205,6 +228,32 @@ catalogRoutes.patch("/products/:id", async (c) => {
   }
   const p = await db.prepare(`SELECT ${PRODUCT_COLS} ${PRODUCT_FROM} WHERE p.id = ?`).bind(id).first();
   return ok(c, decorate(p, business));
+});
+
+/**
+ * Upload a product photo. The body is the raw image (the browser has already resized and compressed it).
+ * The file type is checked from its bytes, not from what the browser claims.
+ */
+catalogRoutes.post("/images", async (c) => {
+  const { business, user } = ownerCtx(c);
+  await rateLimit(c, "image-upload", business.id, 120, 3600);
+  const declared = Number(c.req.header("content-length") ?? 0);
+  if (declared > MAX_IMAGE_BYTES) throw invalid(`Photo is too large (max ${MAX_IMAGE_BYTES / 1000} KB after compression).`);
+  const bytes = new Uint8Array(await c.req.arrayBuffer());
+  if (!bytes.length) throw invalid("No photo was received.");
+  if (bytes.length > MAX_IMAGE_BYTES) throw invalid(`Photo is too large (max ${MAX_IMAGE_BYTES / 1000} KB after compression).`);
+  const type = sniffImageType(bytes);
+  if (!type) throw invalid("Only JPG, PNG or WebP photos can be uploaded.");
+  const db = c.env.DB;
+  const count = await db.prepare("SELECT COUNT(*) AS n FROM product_images WHERE business_id = ?").bind(business.id).first<{ n: number }>();
+  if ((count?.n ?? 0) >= MAX_IMAGES_PER_BUSINESS) throw conflict(`You have reached the limit of ${MAX_IMAGES_PER_BUSINESS} product photos.`);
+  const id = uuid();
+  await db.batch([
+    db.prepare("INSERT INTO product_images (id, business_id, content_type, bytes, data, created_by, created_at) VALUES (?,?,?,?,?,?,?)")
+      .bind(id, business.id, type, bytes.length, bytes, user.id, now()),
+    auditStmt(db, { businessId: business.id, actorId: user.id, action: "product.photo_uploaded", entityType: "image", entityId: id, metadata: { bytes: bytes.length, type } }),
+  ]);
+  return ok(c, { id, url: `/api/images/${id}`, bytes: bytes.length, contentType: type }, undefined, 201);
 });
 
 /** Products are archived, never hard-deleted, so past orders keep their references. */
@@ -303,11 +352,15 @@ catalogRoutes.post("/products/import", async (c) => {
   const seen = new Map<string, number>();
   const errors: { row: number; sku: string; messages: string[] }[] = [];
   const valid: any[] = [];
+  // uploaded photos referenced in the file must belong to this business (e.g. from its own CSV export)
+  const ownedImages = await imagesBelongTo(db, business.id, input.rows.map((r) => str((r as Record<string, unknown> | null)?.image_url)));
 
   input.rows.forEach((raw, i) => {
     const rowNo = i + 2; // +1 for the header line, +1 for 1-based numbering — matches the spreadsheet row
     const conv = convertRow((raw ?? {}) as Record<string, unknown>);
     const messages = [...conv.errors];
+    const imageId = internalImageId(String(conv.value.imageUrl ?? ""));
+    if (imageId && !ownedImages.has(imageId)) messages.push("image_url: this uploaded photo is not in your catalogue");
     const parsed = productImportRowSchema.safeParse(conv.value);
     if (!parsed.success) {
       for (const issue of parsed.error.issues) messages.push(`${issue.path.join(".")}: ${issue.message}`);

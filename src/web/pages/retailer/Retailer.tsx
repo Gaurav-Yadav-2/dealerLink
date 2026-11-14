@@ -24,7 +24,7 @@ const availKey = { in_stock: "cat.inStock", low_stock: "cat.lowStock", out_of_st
 const pushText = (t: (k: TKey) => string): PushText => ({
   title: t("push.title"), desc: t("push.desc"), turnOn: t("push.turnOn"), turnOff: t("push.turnOff"), on: t("push.on"), test: t("push.test"),
   testSent: t("push.testSent"), denied: t("push.denied"), unsupported: t("push.unsupported"), install: t("push.install"),
-  notConfigured: t("push.notConfigured"), dismiss: t("push.dismiss"), failed: t("push.failed"),
+  notConfigured: t("push.notConfigured"), dismiss: t("push.dismiss"), failed: t("push.failed"), serviceOff: t("push.serviceOff"),
 });
 
 /** Cart quantities by product id, shared by every screen that shows an "add to cart" control. */
